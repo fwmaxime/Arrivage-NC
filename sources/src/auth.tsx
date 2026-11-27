@@ -73,7 +73,7 @@ export function AuthModal() {
             <Field label="Mot de passe" hint="8 caractères minimum" htmlFor="au-npw"><Password id="au-npw" value={pw} onChange={setPw} auto="new-password" /></Field>
             {err && <p className="field-err">{err}</p>}
             <Btn type="submit" icon={UserPlus} disabled={busy || !online} className="w-full">{busy ? "Création…" : "Créer mon compte"}</Btn>
-            <p className="muted small" style={{ margin: 0 }}>Le compte est gratuit. Il sert à réserver des produits, à inscrire votre commerce et à retrouver vos favoris et alertes sur tous vos appareils.</p>
+            <p className="muted small" style={{ margin: 0 }}>Le compte est gratuit. Il sert à inscrire votre commerce et à retrouver vos favoris et alertes sur tous vos appareils.</p>
           </form>
         ) : tab === "forgot" ? (
           <form className="form" onSubmit={forgot} noValidate>
@@ -106,7 +106,7 @@ export function AccountSection() {
   const me = s.me;
   if (!me) return (
     <div className="side-card account-card">
-      <div className="row"><span className="avatar"><Logo size={14} /></span><div><strong>Vous naviguez sans compte</strong><div className="muted small">Favoris et alertes restent sur cet appareil. Un compte gratuit est nécessaire pour réserver ou inscrire un commerce.</div></div></div>
+      <div className="row"><span className="avatar"><Logo size={14} /></span><div><strong>Vous naviguez sans compte</strong><div className="muted small">Favoris et alertes restent sur cet appareil. Un compte gratuit est nécessaire pour inscrire un commerce.</div></div></div>
       <div className="row" style={{ marginTop: 12, flexWrap: "wrap" }}><Btn icon={LogIn} onClick={() => openAuth()}>Se connecter</Btn><Btn variant="outline" icon={UserPlus} onClick={() => openAuth(undefined, "signup")}>Créer un compte</Btn></div>
     </div>
   );

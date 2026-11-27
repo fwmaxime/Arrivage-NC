@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { DEAL_KINDS, OCCASIONS, DealKind, dealKind, dealState, dealWhen, dealBadge, dealTitle, isResto, presets, toLocalInput, RESTO_CAT } from "./deals";
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid, BarChart, Bar, Cell, PieChart, Pie } from "recharts";
-import { CATEGORIES, COMMUNES, STATUSES, PLANS, DemandItem, catById, planById, fmtXPF, fmtNum, fmtRel, fmtDate, norm, Product, Merchant, Status, PlanId } from "./data";
+import { CATEGORIES, COMMUNES, STATUSES, PLANS, DemandItem, catById, planById, fmtXPF, fmtNum, fmtRel, fmtDate, norm, Product, Merchant, Status, PlanId, safeUrl } from "./data";
 import { useStore, alertMatches, newId, tokens, productHay } from "./store";
 import { useNav } from "./nav";
 import { Btn, IconBtn, StatusPill, Chip, ProductVisual, MerchantLogo, Modal, Empty, SectionHead, Segmented, Field, Stat, DemoTag, cx, Confirm } from "./ui";
@@ -288,10 +288,10 @@ export function PublishPage({ params }: any) {
     const renew = params?.renew;
     return { on: true, kind: p.deal.kind, occasion: p.deal.occasion || "", was: p.deal.was ? String(p.deal.was) : "", discount: p.deal.discount || "", start: renew ? dealBlank.start : toLocalInput(new Date(p.deal.startAt)), end: renew ? dealBlank.end : toLocalInput(new Date(p.deal.endAt)) };
   };
-  const blank = { name: "", category: (resto && params?.deal ? RESTO_CAT : me.categories[0]) as string, brand: "", description: "", price: "", qty: "", images: [] as string[], arrived: todayStr(), status: "today" as Status, store: me.stores[0], tags: "", schedule: "", tryOn: false, deal: dealBlank };
+  const blank = { name: "", category: (resto && params?.deal ? RESTO_CAT : me.categories[0]) as string, brand: "", description: "", price: "", qty: "", images: [] as string[], arrived: todayStr(), status: "today" as Status, store: me.stores[0], tags: "", schedule: "", tryOn: false, buyUrl: "", deal: dealBlank };
   const [f, setF] = useState(() => editing ? {
     name: editing.name, category: editing.category, brand: editing.brand === "Sans marque" ? "" : editing.brand, description: editing.description, price: editing.price && !(params?.deal && !editing.deal) ? String(editing.price) : "", qty: editing.qty != null ? String(editing.qty) : "",
-    images: editing.images, arrived: editing.arrivedAt.slice(0, 10), status: editing.status, store: editing.store || me.stores[0], tags: editing.tags.join(", "), schedule: editing.scheduledAt ? editing.scheduledAt.slice(0, 16) : "", tryOn: !!editing.tryOn,
+    images: editing.images, arrived: editing.arrivedAt.slice(0, 10), status: editing.status, store: editing.store || me.stores[0], tags: editing.tags.join(", "), schedule: editing.scheduledAt ? editing.scheduledAt.slice(0, 16) : "", tryOn: !!editing.tryOn, buyUrl: editing.buyUrl || "",
     deal: dealFrom(editing),
   } : blank);
   const isRestoCat = f.category === RESTO_CAT;
@@ -315,7 +315,7 @@ export function PublishPage({ params }: any) {
       ...(editing || { id: "p" + newId(), views: 0, favBase: 0, contacts: 0, alertHits: 0, sponsored: false, featured: false, createdAt: nowI, publishedAt: nowI, state: "draft", scheduledAt: null } as any),
       name: f.name.trim(), category: f.category as any, brand: f.brand.trim() || "Sans marque", description: f.description.trim() || "Aucune description fournie.",
       price: Math.round(Number(f.price)), qty: f.qty === "" ? null : Math.round(Number(f.qty)), images: f.images, arrivedAt: arrived, status: f.status, store: f.store,
-      tags: f.tags.split(",").map((t) => t.trim().toLowerCase()).filter(Boolean), updatedAt: nowI, merchantId: me.id, tryOn: !!f.tryOn,
+      tags: f.tags.split(",").map((t) => t.trim().toLowerCase()).filter(Boolean), updatedAt: nowI, merchantId: me.id, tryOn: !!f.tryOn, buyUrl: safeUrl(f.buyUrl),
       deal: dealOn ? {
         kind: (isRestoCat ? f.deal.kind : dealKind(f.deal.kind).shop ? f.deal.kind : "promo") as DealKind, occasion: f.deal.occasion.trim() || undefined,
         was: f.deal.was ? Math.round(Number(f.deal.was)) : null, discount: f.deal.discount.trim() || undefined,
@@ -327,6 +327,7 @@ export function PublishPage({ params }: any) {
     const e: any = {};
     if (f.name.trim().length < 3) e.name = isRestoCat ? "Nom du plat ou de l'offre requis (3 caractères minimum)" : "Nom du produit requis (3 caractères minimum)";
     if (!f.category) e.category = "Choisissez une catégorie";
+    if (f.buyUrl.trim() && !safeUrl(f.buyUrl)) e.buyUrl = "Collez un lien complet qui commence par https://";
     const noPriceOk = dealOn && f.price === "" && !!f.deal.discount.trim();
     if (dealOn) {
       const st = +new Date(f.deal.start), en = +new Date(f.deal.end);
@@ -443,6 +444,7 @@ export function PublishPage({ params }: any) {
             <span className="tryon-box"><Check size={14} strokeWidth={3} /></span>
             <span className="tryon-txt"><strong><Shirt size={15} /> Produit essayable en magasin</strong><span className="micro">Le client peut l'essayer sur place avant d'acheter : cabine d'essayage, pointures, tailles.{["mode", "sneakers", "sport"].includes(f.category) && !f.tryOn ? " Conseillé pour cette catégorie." : ""}</span>{f.tryOn && <span className="tryon-warn">La réservation et le paiement en ligne sont désactivés pour ce produit, le client choisit sa taille en magasin.</span>}</span>
           </label>}
+          {!isRestoCat && !f.tryOn && <Field label="Lien d'achat (facultatif)" htmlFor="pf-buy" error={err.buyUrl} hint={`Lien de paiement de votre banque, Stripe, PayPal, ou la page du produit sur votre boutique en ligne. Le client paie directement chez vous, ARRIVAGE ne prend aucune commission.${safeUrl(me.shopUrl) ? " Laissé vide : le lien de votre fiche commerçant est utilisé." : ""}`}><input id="pf-buy" type="url" inputMode="url" value={f.buyUrl} onChange={(e) => set("buyUrl", e.target.value)} placeholder="https://…" /></Field>}
           <Field label="Description" htmlFor="pf-desc"><textarea id="pf-desc" rows={3} value={f.description} onChange={(e) => set("description", e.target.value)} placeholder={isRestoCat ? "Accompagnement, sur place ou à emporter, allergènes…" : dealOn ? "Conditions de l'offre, produits concernés…" : "Version, garantie, conditions…"} /></Field>
           <Field label="Tags et mots-clés" hint="Séparés par des virgules. Ils aident les alertes à vous trouver." htmlFor="pf-tags"><input id="pf-tags" value={f.tags} onChange={(e) => set("tags", e.target.value)} placeholder="ps5, console, sony" /></Field>
           <Field label="Photographies" error={imgErr}>
@@ -728,11 +730,12 @@ export function ShopProfile() {
     const er: any = {};
     if (f.name.trim().length < 2) er.name = "Nom requis";
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(f.email)) er.email = "Adresse e-mail invalide";
+    if ((f.shopUrl || "").trim() && !safeUrl(f.shopUrl)) er.shopUrl = "Collez un lien complet qui commence par https://";
     if (f.phone.replace(/\D/g, "").length < 6) er.phone = "Numéro invalide";
     setErr(er);
     if (Object.keys(er).length) return;
     const stores = plan.can.multiStore ? f.storesTxt.split(",").map((x) => x.trim()).filter(Boolean) : [f.storesTxt.split(",")[0].trim() || me.stores[0]];
-    mutate((d) => { const x = d.merchants.find((y) => y.id === me.id)!; Object.assign(x, { name: f.name.trim(), tagline: f.tagline, description: f.description, address: f.address, commune: f.commune, phone: f.phone, email: f.email, hours: f.hoursTxt.split("\n").map((h) => h.trim()).filter(Boolean), addressVerified: f.addressVerified, logo: f.logo, color: f.color, stores }); });
+    mutate((d) => { const x = d.merchants.find((y) => y.id === me.id)!; Object.assign(x, { name: f.name.trim(), tagline: f.tagline, description: f.description, address: f.address, commune: f.commune, phone: f.phone, email: f.email, hours: f.hoursTxt.split("\n").map((h) => h.trim()).filter(Boolean), addressVerified: f.addressVerified, logo: f.logo, color: f.color, stores, shopUrl: safeUrl(f.shopUrl) }); });
     toast("Fiche commerçant mise à jour, visible côté consommateur");
   };
   return (
@@ -757,6 +760,7 @@ export function ShopProfile() {
           <Field label="Téléphone" error={err.phone} htmlFor="sp-phone"><input id="sp-phone" value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} /></Field>
           <Field label="E-mail" error={err.email} htmlFor="sp-mail"><input id="sp-mail" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} /></Field>
         </div>
+        <Field label="Boutique en ligne ou page de paiement (facultatif)" htmlFor="sp-shop" error={err.shopUrl} hint="Affiche un bouton « Acheter » sur vos produits. Le client paie directement chez vous (lien de paiement de votre banque, Stripe, PayPal, votre site…). Vous pouvez aussi mettre un lien différent pour chaque produit."><input id="sp-shop" type="url" inputMode="url" value={f.shopUrl || ""} onChange={(e) => setF({ ...f, shopUrl: e.target.value })} placeholder="https://…" /></Field>
         <label className="switch-row"><input type="checkbox" checked={f.addressVerified} onChange={(e) => setF({ ...f, addressVerified: e.target.checked })} /><span className="switch" /> Adresse réelle et exploitable (active le bouton Itinéraire)</label>
         <Field label="Description" htmlFor="sp-desc"><textarea id="sp-desc" rows={3} value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} /></Field>
         <div className="form-2">

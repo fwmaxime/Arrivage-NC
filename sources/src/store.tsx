@@ -6,6 +6,7 @@ import type { Review } from "./reviews";
 import type { Staff } from "./staff";
 import { sb, stable, idToEmail, authError } from "./backend";
 import { dealWords, dealEnded } from "./deals";
+import { markBlockedDevice } from "./blocked";
 
 export interface Alert { id: string; query: string; brand: string; category: string; maxBudget: number | null; commune: string; features: string; active: boolean; createdAt: string; lastMatchAt?: string | null }
 export interface Notif { id: string; kind: "alert" | "follow" | "system" | "order"; title: string; body: string; productId?: string; read: boolean; at: string }
@@ -285,7 +286,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       const id = u?.id || null;
       if (id === lastUser) return;
       lastUser = id;
-      if (u) { const { me, saved } = await fetchMe(u.id, u.email || ""); await loadAll(me, saved); }
+      if (u) {
+        const { me, saved } = await fetchMe(u.id, u.email || "");
+        if (me.blocked && me.role !== "admin") { markBlockedDevice(me.id); setS((x) => ({ ...x, me })); try { localStorage.removeItem(LOCAL_KEY); } catch {} await sb!.auth.signOut().catch(() => {}); return; }
+        await loadAll(me, saved);
+      }
       else {
         if (cur.current.me) setS((x) => mergeUser({ ...x, me: null }, loadLocal()));
         syncedUser.current = "";
@@ -294,9 +299,22 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     };
     sb.auth.getSession().then(({ data }) => handle(data.session));
     const { data: sub } = sb.auth.onAuthStateChange((e, session) => { if (e === "PASSWORD_RECOVERY") setAuth({ tab: "reset" }); setTimeout(() => handle(session), 0); });
+    // Blocage par la modération : vérifié toutes les 20 s et au retour sur l'onglet. Dès qu'il est constaté, l'appareil est marqué et la session fermée.
+    const checkBlocked = async () => {
+      const me = cur.current.me;
+      if (!me || me.role === "admin" || document.visibilityState !== "visible") return;
+      const { data } = await sb!.from("profiles").select("blocked").eq("id", me.id).maybeSingle();
+      if (!data?.blocked) return;
+      markBlockedDevice(me.id);
+      setS((x) => (x.me ? { ...x, me: { ...x.me, blocked: true } } : x));
+      try { localStorage.removeItem(LOCAL_KEY); } catch {}
+      await sb!.auth.signOut().catch(() => {});
+    };
+    const tb = setInterval(checkBlocked, 20000);
+    document.addEventListener("visibilitychange", checkBlocked);
     // rafraîchissement régulier (nouvelles réservations, signalements…)
     const t = setInterval(() => { if (document.visibilityState === "visible" && cur.current.me) loadAll(cur.current.me); }, 90000);
-    return () => { sub.subscription.unsubscribe(); clearInterval(t); };
+    return () => { sub.subscription.unsubscribe(); clearInterval(t); clearInterval(tb); document.removeEventListener("visibilitychange", checkBlocked); };
   }, []);
 
   // ---------- Envoi des modifications au serveur ----------
