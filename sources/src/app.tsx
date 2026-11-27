@@ -4,10 +4,11 @@ import { useBlockGate, BlockedPage } from "./blocked";
 import { HowPage } from "./how";
 import { createRoot } from "react-dom/client";
 import { Home as HomeI, Compass, BellRing, Heart, Store, Bell, User, MapPin, LayoutDashboard, Package, Plus, Target, Crown, Settings, Calculator, Users, Flag, Layers, ShieldCheck, RotateCcw, Search, X, ChevronDown, Ban, Palette, ShoppingBag, Map as MapIco, Star, FileSpreadsheet, Users as UsersIco } from "lucide-react";
-import { TeamPage, ActAsBanner, NoAccess } from "./team";
+import { TeamPage, ActAsBanner, NoAccess, JoinTeamPage } from "./team";
 import { ImportPage } from "./import";
-import { can as roleCan, ROUTE_PERM } from "./staff";
-import { StoreProvider, useStore, myMerchants } from "./store";
+import { can as roleCan, ROUTE_PERM, roleById } from "./staff";
+const roleName = (r: any) => roleById(r).name;
+import { StoreProvider, useStore, myMerchants, myStaffRow } from "./store";
 import { AuthModal, NeedAccount } from "./auth";
 import { NavCtx, Mode, Route } from "./nav";
 import { Logo, Toasts, cx, IconBtn, Modal, Btn, MerchantLogo } from "./ui";
@@ -82,6 +83,7 @@ function ConsumerShell({ route, go }: any) {
       case "signup": return <MerchantSignup />;
       case "orders": return s.me ? <MyReservations /> : <NeedAccount title="Mes réservations" body="Connectez-vous pour voir et suivre vos réservations." />;
       case "how": return <HowPage />;
+      case "join": return <JoinTeamPage params={route.params} />;
       case "theme": return <ThemeSettings />;
       default: return <Home />;
     }
@@ -138,7 +140,9 @@ function MerchantShellIn({ route, go }: any) {
   const { s, mutate, toast } = useStore();
   const me = useMe();
   const plan = planById(me.plan);
-  const acting = s.actAs ? s.staff.find((x) => x.id === s.actAs && x.merchantId === me.id) : undefined;
+  // Employé connecté avec son propre compte : ses droits dépendent de son rôle. Propriétaire : « Voir comme » un employé (aperçu).
+  const employee = s.me?.role !== "admin" && me.ownerId !== s.me?.id ? myStaffRow(s, me.id) : undefined;
+  const acting = employee || (s.actAs ? s.staff.find((x) => x.id === s.actAs && x.merchantId === me.id) : undefined);
   const resNew = s.reservations.filter((r) => r.merchantId === me.id && r.merchantUnread).length;
   const modUnread = s.reports.filter((r) => r.merchantUnread && s.products.find((p) => p.id === r.productId)?.merchantId === me.id).length;
   const items: any[] = [
@@ -152,6 +156,7 @@ function MerchantShellIn({ route, go }: any) {
     { n: "reviews", l: "Avis clients", s: "Avis", i: Star },
     { n: "moderation", l: "Modération", s: "Modération", i: ShieldCheck, badge: modUnread },
         { n: "plans", l: "Forfaits", s: "Forfaits", i: Crown },
+    { n: "team", l: "Équipe", s: "Équipe", i: UsersIco, lock: !plan.can.team },
     { n: "shop", l: "Ma fiche", s: "Fiche", i: Settings },
     { n: "theme", l: "Personnalisation", s: "Thème", i: Palette },
   ].filter((x) => !acting || ROUTE_PERM[x.n] == null || roleCan(acting.role, ROUTE_PERM[x.n]!));
@@ -190,8 +195,8 @@ function MerchantShellIn({ route, go }: any) {
         <div className="side-foot"><span className={cx("plan-badge", `plan-${plan.id}`)}>{plan.name}</span><span className="micro">{me.status === "pending" ? "En attente de validation" : me.status === "suspended" ? "Suspendu" : "En ligne"}</span></div>
       </aside>
       <div className="side-main">
-        <div className="mtop show-md">{switcher}<div className="mtop-links"><button className={cx(route.name === "moderation" && "is-on")} onClick={() => go("moderation")}><ShieldCheck size={15} /> Modération{modUnread ? <span className="side-badge">{modUnread}</span> : null}</button><button className={cx(route.name === "shop" && "is-on")} onClick={() => go("shop")}><Settings size={15} /> Ma fiche</button>{(!acting || roleCan(acting.role, "publish")) && <button className={cx(route.name === "import" && "is-on")} onClick={() => go("import")}><FileSpreadsheet size={15} /> Import</button>}{(!acting || roleCan(acting.role, "billing")) && <button className={cx(route.name === "plans" && "is-on")} onClick={() => go("plans")}><Crown size={15} /> Forfaits</button>}<button className={cx(route.name === "reviews" && "is-on")} onClick={() => go("reviews")}><Star size={15} /> Avis</button><button className={cx(route.name === "theme" && "is-on")} onClick={() => go("theme")}><Palette size={15} /> Thème</button></div></div>
-        {acting && <ActAsBanner member={acting} />}
+        <div className="mtop show-md">{switcher}<div className="mtop-links"><button className={cx(route.name === "moderation" && "is-on")} onClick={() => go("moderation")}><ShieldCheck size={15} /> Modération{modUnread ? <span className="side-badge">{modUnread}</span> : null}</button><button className={cx(route.name === "shop" && "is-on")} onClick={() => go("shop")}><Settings size={15} /> Ma fiche</button>{(!acting || roleCan(acting.role, "publish")) && <button className={cx(route.name === "import" && "is-on")} onClick={() => go("import")}><FileSpreadsheet size={15} /> Import</button>}{(!acting || roleCan(acting.role, "billing")) && <button className={cx(route.name === "plans" && "is-on")} onClick={() => go("plans")}><Crown size={15} /> Forfaits</button>}<button className={cx(route.name === "reviews" && "is-on")} onClick={() => go("reviews")}><Star size={15} /> Avis</button>{(!acting || roleCan(acting.role, "team")) && <button className={cx(route.name === "team" && "is-on")} onClick={() => go("team")}><UsersIco size={15} /> Équipe</button>}<button className={cx(route.name === "theme" && "is-on")} onClick={() => go("theme")}><Palette size={15} /> Thème</button></div></div>
+        {employee ? <div className="actas"><UsersIco size={16} /><span>Vous êtes connecté comme <b>{roleName(employee.role)}</b> de {me.name}. Certaines pages sont réservées au propriétaire.</span></div> : acting && <ActAsBanner member={acting} />}
         <main key={route.name + (route.params?.id || "")}>{page}</main>
       </div>
       <nav className="bottomnav show-md">

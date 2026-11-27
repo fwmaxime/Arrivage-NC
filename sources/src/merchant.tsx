@@ -8,13 +8,13 @@ import {
 import { DEAL_KINDS, OCCASIONS, DealKind, dealKind, dealState, dealWhen, dealBadge, dealTitle, isResto, presets, toLocalInput, RESTO_CAT } from "./deals";
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid, BarChart, Bar, Cell, PieChart, Pie } from "recharts";
 import { CATEGORIES, COMMUNES, STATUSES, PLANS, DemandItem, catById, planById, fmtXPF, fmtNum, fmtRel, fmtDate, norm, Product, Merchant, Status, PlanId, safeUrl } from "./data";
-import { useStore, alertMatches, newId, tokens, productHay } from "./store";
+import { useStore, alertMatches, newId, tokens, productHay, myMerchants, myStaffRow } from "./store";
 import { useNav } from "./nav";
 import { Btn, IconBtn, StatusPill, Chip, ProductVisual, MerchantLogo, Modal, Empty, SectionHead, Segmented, Field, Stat, DemoTag, cx, Confirm } from "./ui";
 
 export const useMe = () => {
   const { s } = useStore();
-  const mine = s.me?.role === "admin" ? s.merchants : s.merchants.filter((m) => m.ownerId && m.ownerId === s.me?.id);
+  const mine = s.me?.role === "admin" ? s.merchants : myMerchants(s);
   return mine.find((m) => m.id === s.currentMerchant) || mine[0];
 };
 
@@ -176,6 +176,8 @@ export function PostsPage() {
   const { s, mutate, toast, log, publish } = useStore();
   const { go } = useNav();
   const me = useMe();
+  // Vendeur (compte employé) : stock et disponibilité seulement
+  const stockOnly = s.me?.role !== "admin" && me.ownerId !== s.me?.id && myStaffRow(s, me.id)?.role === "seller";
   const plan = planById(me.plan);
   const [tab, setTab] = useState("all");
   const [del, setDel] = useState<Product | null>(null);
@@ -204,7 +206,7 @@ export function PostsPage() {
     <div className="page">
       <div className="page-head">
         <div><h1 className="page-title">Mes publications</h1><p className="muted">{plan.quota ? `${Math.max(0, quotaLeft)} publication(s) restante(s) ce mois-ci sur votre forfait ${plan.name}` : `Publications illimitées avec le forfait ${plan.name}`}</p></div>
-        <div className="row"><Btn variant="outline" icon={isResto(me) ? UtensilsCrossed : Flame} onClick={() => go("publish", { deal: 1 })}>{isResto(me) ? "Nouvelle offre" : "Créer une promo"}</Btn><Btn icon={Plus} onClick={() => go("publish")}>Nouvel arrivage</Btn></div>
+        {!stockOnly && <div className="row"><Btn variant="outline" icon={isResto(me) ? UtensilsCrossed : Flame} onClick={() => go("publish", { deal: 1 })}>{isResto(me) ? "Nouvelle offre" : "Créer une promo"}</Btn><Btn icon={Plus} onClick={() => go("publish")}>Nouvel arrivage</Btn></div>}
       </div>
       <Segmented value={tab} onChange={setTab} options={[{ v: "all", l: `Toutes (${counts.all})` }, { v: "published", l: `En ligne (${counts.published})` }, { v: "scheduled", l: `Programmées (${counts.scheduled})` }, { v: "draft", l: `Brouillons (${counts.draft})` }, { v: "hidden", l: `Masquées (${counts.hidden})` }]} />
       <div className="posts">
@@ -224,16 +226,18 @@ export function PostsPage() {
               </div>
             </div>
             <div className="post-actions">
-              {(p.state === "draft" || p.state === "scheduled") && <Btn size="sm" icon={Send} onClick={() => publishNow(p)}>Publier</Btn>}
+              {!stockOnly && (p.state === "draft" || p.state === "scheduled") && <Btn size="sm" icon={Send} onClick={() => publishNow(p)}>Publier</Btn>}
               {p.state === "published" && p.status !== "limited" && p.status !== "out" && <Btn size="sm" variant="outline" icon={Zap} onClick={() => upd(p.id, (x) => (x.status = "limited"), "Passé en stock limité")}>Stock limité</Btn>}
               {p.state === "published" && p.status !== "out" && <Btn size="sm" variant="outline" icon={Ban} onClick={() => upd(p.id, (x) => (x.status = "out"), "Passé en rupture de stock")}>Rupture</Btn>}
               {p.state === "published" && (p.status === "out" || p.status === "limited") && <Btn size="sm" variant="outline" icon={RotateCcw} onClick={() => upd(p.id, (x) => { x.status = "restock"; x.arrivedAt = new Date().toISOString(); }, "Marqué comme réapprovisionné")}>Réappro.</Btn>}
-              {plan.can.sponsored && p.state === "published" && <Btn size="sm" variant="ghost" icon={Megaphone} onClick={() => upd(p.id, (x) => (x.sponsored = !x.sponsored), p.sponsored ? "Mise en avant retirée" : "Publication sponsorisée (simulation, sans paiement)")}>{p.sponsored ? "Retirer" : "Sponsoriser"}</Btn>}
-              {p.state === "published" && !p.deal && <Btn size="sm" variant="outline" icon={Flame} onClick={() => go("publish", { id: p.id, deal: 1 })}>Mettre en promo</Btn>}
-              {p.deal && dealState(p) === "ended" && <Btn size="sm" variant="outline" icon={RotateCcw} onClick={() => go("publish", { id: p.id, deal: 1, renew: 1 })}>Relancer</Btn>}
+              {!stockOnly && plan.can.sponsored && p.state === "published" && <Btn size="sm" variant="ghost" icon={Megaphone} onClick={() => upd(p.id, (x) => (x.sponsored = !x.sponsored), p.sponsored ? "Mise en avant retirée" : "Publication sponsorisée (simulation, sans paiement)")}>{p.sponsored ? "Retirer" : "Sponsoriser"}</Btn>}
+              {!stockOnly && p.state === "published" && !p.deal && <Btn size="sm" variant="outline" icon={Flame} onClick={() => go("publish", { id: p.id, deal: 1 })}>Mettre en promo</Btn>}
+              {!stockOnly && p.deal && dealState(p) === "ended" && <Btn size="sm" variant="outline" icon={RotateCcw} onClick={() => go("publish", { id: p.id, deal: 1, renew: 1 })}>Relancer</Btn>}
+              {!stockOnly && <>
               <IconBtn icon={Pencil} label="Modifier" onClick={() => go("publish", { id: p.id })} />
               <IconBtn icon={Copy} label="Dupliquer" onClick={() => duplicate(p)} />
               <IconBtn icon={Trash2} label="Supprimer" onClick={() => setDel(p)} />
+              </>}
             </div>
           </div>
         ))}

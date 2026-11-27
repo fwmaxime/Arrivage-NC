@@ -1737,3 +1737,7 @@ input[type="range"]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 4px 
 .todo-item { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line, #ddd); border-radius: 999px; padding: 6px 12px; background: transparent; font: inherit; font-size: 14px; cursor: pointer; color: inherit; }
 .todo-item b { color: var(--accent, #E77938); }
 .todo-item:hover { border-color: currentColor; }
+.join-panel { max-width: 520px; margin: 24px auto; display: grid; gap: 12px; padding: 24px; }
+.invite-code { display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; border: 1px dashed var(--line-2); border-radius: 12px; margin-bottom: 10px; }
+.invite-code b { font-size: 22px; letter-spacing: .08em; }
+.invite-msg { width: 100%; font: inherit; font-size: 13px; border: 1px solid var(--line); border-radius: 10px; padding: 10px; background: var(--surface-2); color: inherit; resize: vertical; }

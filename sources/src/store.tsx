@@ -105,15 +105,18 @@ export function alertMatches(a: Alert, p: Product, m?: Merchant) {
 
 // Qui peut écrire quoi (miroir des règles du serveur, pour éviter des envois refusés)
 function owns(s: State, mid: string) { return !!s.me && s.merchants.some((m) => m.id === mid && (m as any).ownerId === s.me!.id); }
+// Comptes employés : la fiche « staff » active de la personne connectée pour ce commerce (rôle gérant ou vendeur)
+export function myStaffRow(s: State, mid: string): Staff | undefined { return s.me ? s.staff.find((x) => x.merchantId === mid && x.userId === s.me!.id && x.status === "active") : undefined; }
+const manages = (s: State, mid: string) => owns(s, mid) || myStaffRow(s, mid)?.role === "manager";
 function canWrite(s: State, c: Coll, row: any): boolean {
   const me = s.me; if (!me) return false;
   const admin = me.role === "admin";
   switch (c) {
-    case "merchants": return admin || row.ownerId === me.id;
-    case "products": return admin || owns(s, row.merchantId);
-    case "reservations": return admin || row.buyerId === me.id || owns(s, row.merchantId);
-    case "reviews": return admin || row.authorId === me.id || owns(s, row.merchantId);
-    case "reports": { const p = s.products.find((x) => x.id === row.productId); return admin || row.reporterId === me.id || (!!p && owns(s, p.merchantId)); }
+    case "merchants": return admin || row.ownerId === me.id || myStaffRow(s, row.id)?.role === "manager";
+    case "products": return admin || manages(s, row.merchantId) || !!myStaffRow(s, row.merchantId);
+    case "reservations": return admin || row.buyerId === me.id || manages(s, row.merchantId);
+    case "reviews": return admin || row.authorId === me.id || manages(s, row.merchantId);
+    case "reports": { const p = s.products.find((x) => x.id === row.productId); return admin || row.reporterId === me.id || (!!p && manages(s, p.merchantId)); }
     case "staff": return admin || owns(s, row.merchantId);
     case "activity": return true;
   }
@@ -121,7 +124,8 @@ function canWrite(s: State, c: Coll, row: any): boolean {
 
 export function myId(s: State) { return s.me?.id || "anonyme"; }
 export const isAdmin = (s: State) => s.me?.role === "admin";
-export const myMerchants = (s: State) => s.me ? s.merchants.filter((m) => (m as any).ownerId === s.me!.id) : [];
+// Commerces que la personne connectée gère : les siens, et ceux où elle est employée (invitation acceptée)
+export const myMerchants = (s: State) => s.me ? s.merchants.filter((m) => (m as any).ownerId === s.me!.id || !!myStaffRow(s, m.id)) : [];
 
 export interface DemandRaw { alerts: { q: string; c: string; b: number | null; m: string | null }[]; searches: Record<string, number>; prev: Record<string, number>; users: number }
 
@@ -233,7 +237,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       for (const p of next.products) synced.current.products.set(p.id, stable(p));
       for (const m of next.merchants) synced.current.merchants.set(m.id, stable(m));
       // commerce courant
-      const mine = me ? next.merchants.filter((m) => (m as any).ownerId === me.id) : [];
+      const mine = me ? myMerchants({ ...next, me }) : [];
       if (me && !(me.role === "admin" ? next.merchants : mine).some((m) => m.id === next.currentMerchant)) next.currentMerchant = (mine[0] || (me.role === "admin" ? next.merchants[0] : undefined))?.id || "";
       // arrivages programmés arrivés à échéance
       next.products = next.products.map((p) => p.state === "scheduled" && p.scheduledAt && new Date(p.scheduledAt).getTime() <= Date.now() ? { ...p, state: "published", publishedAt: p.scheduledAt, scheduledAt: null } : p);
