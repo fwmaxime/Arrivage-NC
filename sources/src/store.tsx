@@ -149,6 +149,7 @@ interface Ctx {
   reload: () => Promise<void>;
 }
 const C = createContext<Ctx>(null as any);
+export const StoreCtx = C;
 export const useStore = () => useContext(C);
 
 async function fetchColl(t: string, opts?: { order?: boolean }) {
