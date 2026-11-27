@@ -215,6 +215,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     const settings = { manualApproval: true, moderateReviews: true, ...(cfg.settings || {}) };
     const categories = CATEGORIES.map((c) => ({ id: c.id, active: (cfg.categories || []).find((x: any) => x.id === c.id)?.active ?? true }));
     syncedCfg.current = stable({ settings, categories });
+    lastSync.current = new Date(Date.now() - 120000).toISOString();
+    if (me) setTimeout(() => migratePhotos(), 3000);
 
     setS((prev) => {
       let next: State = { ...prev, merchants, products, reviews, reservations, reports, staff, activity, users, settings, categories, me, ready: true };
@@ -317,7 +319,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     const tb = setInterval(checkBlocked, 20000);
     document.addEventListener("visibilitychange", checkBlocked);
     // rafraîchissement régulier (nouvelles réservations, signalements…)
-    const t = setInterval(() => { if (document.visibilityState === "visible" && cur.current.me) loadAll(cur.current.me); }, 90000);
+    // Rafraîchissement : léger toutes les 90 s (lignes modifiées seulement), complet toutes les 15 min
+    let ticks = 0;
+    const t = setInterval(() => {
+      if (document.visibilityState !== "visible" || !cur.current.me) return;
+      ticks++;
+      if (ticks % 10 === 0) loadAll(cur.current.me); else refresh();
+    }, 90000);
     return () => { sub.subscription.unsubscribe(); clearInterval(t); clearInterval(tb); document.removeEventListener("visibilitychange", checkBlocked); };
   }, []);
 
@@ -398,16 +406,71 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     sb?.rpc("bump", { t, rid, field, delta, com: cur.current.profile.commune || "" }).then(({ error }) => { if (error) console.warn("bump", error.message); });
   }
   async function push(c: Coll, rows: any[]) {
+    const orig = rows;
+    // Photos : une image encore en texte (data:…) est d'abord envoyée dans le stockage Supabase, la fiche ne garde que son adresse.
+    if (c === "products" || c === "merchants") {
+      try { rows = await Promise.all(rows.map((r) => withStoredPhotos(c, r))); }
+      catch (e: any) { warn("photos: " + (e?.message || e)); toast("Une photo n'a pas pu être envoyée. Vérifiez votre connexion et réessayez.", "warn"); return; }
+    }
     const payload = rows.map((r) => ({ id: r.id, data: r }));
     const q = c === "activity" ? sb!.from(c).insert(payload) : sb!.from(c).upsert(payload).select("id,data");
     const { data, error } = await (q as any);
     if (error) { warn(`${c}: ${error.message}`); return; }
     if (c === "activity" || !data) return;
     // le serveur a pu corriger des champs protégés (statut, forfait, compteurs…)
-    const fixed = (data as any[]).map((x) => ({ ...x.data, id: x.id })).filter((x) => stable(x) !== stable(rows.find((r) => r.id === x.id)));
+    const fixed = (data as any[]).map((x) => ({ ...x.data, id: x.id })).filter((x) => stable(x) !== stable(orig.find((r) => r.id === x.id)));
     if (!fixed.length) return;
     for (const x of fixed) synced.current[c].set(x.id, stable(x));
     setS((prev) => ({ ...prev, [c]: (prev as any)[c].map((r: any) => fixed.find((x) => x.id === r.id) || r) }));
+  }
+
+  // Migration douce : les anciennes photos enregistrées en texte sont envoyées dans le stockage
+  // par le premier compte autorisé qui ouvre le site (le commerçant, un gérant ou un admin).
+  const migrating = useRef(false);
+  async function migratePhotos() {
+    const st = cur.current;
+    if (migrating.current || !sb || !st.me) return;
+    migrating.current = true;
+    try {
+      for (const c of ["products", "merchants"] as const) {
+        const rows = (st as any)[c].filter((r: any) => hasInlinePhoto(r) && canWrite(st, c, r));
+        for (let i = 0; i < rows.length; i += 5) await push(c, rows.slice(i, i + 5));
+      }
+    } finally { migrating.current = false; }
+  }
+
+  // Rafraîchissement léger : seulement les lignes modifiées depuis la dernière fois (+ la liste des identifiants pour voir les suppressions)
+  const lastSync = useRef<string>("");
+  async function refresh() {
+    const me = cur.current.me;
+    if (!sb || !me || !lastSync.current) return;
+    const since = lastSync.current;
+    const started = new Date(Date.now() - 120000).toISOString();
+    for (const c of ["merchants", "products", "reviews", "reservations", "reports", "staff"] as const) {
+      const [chg, ids] = await Promise.all([
+        sb.from(c).select("id,data").gt("updated_at", since).limit(2000),
+        sb.from(c).select("id").limit(10000),
+      ]);
+      if (chg.error || ids.error) continue;
+      const alive = new Set((ids.data || []).map((x: any) => x.id));
+      const rows = (chg.data || []).map((r: any) => ({ ...r.data, id: r.id }));
+      setS((prev) => {
+        const map = synced.current[c] || (synced.current[c] = new Map());
+        // retirées sur le serveur (sauf créations locales pas encore envoyées)
+        let list: any[] = (prev as any)[c].filter((r: any) => alive.has(r.id) || !map.has(r.id));
+        for (const id of Array.from(map.keys())) if (!alive.has(id)) map.delete(id);
+        for (let r of rows) {
+          if (c === "products" && prev.favorites.includes(r.id) && r.favBase > 0) r = { ...r, favBase: r.favBase - 1 };
+          if (c === "merchants" && prev.follows.includes(r.id) && r.followersBase > 0) r = { ...r, followersBase: r.followersBase - 1 };
+          const i = list.findIndex((x) => x.id === r.id);
+          if (i >= 0 && stable(list[i]) !== map.get(r.id)) continue; // modification locale en cours d'envoi : elle gagne
+          map.set(r.id, stable(r));
+          if (i >= 0) list[i] = r; else list = [r, ...list];
+        }
+        return { ...prev, [c]: list };
+      });
+    }
+    lastSync.current = started;
   }
 
   const log = (d: State, text: string, space: Activity["space"]) => {
@@ -501,4 +564,24 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 }
 
 export const newId = uid;
+
+// ---- Photos dans le stockage Supabase (bucket « photos ») ----
+const isInline = (v: any) => typeof v === "string" && v.startsWith("data:image/");
+export const hasInlinePhoto = (r: any) => (Array.isArray(r.images) && r.images.some(isInline)) || isInline(r.logo);
+async function uploadPhoto(folder: string, dataUrl: string): Promise<string> {
+  const blob = await (await fetch(dataUrl)).blob();
+  const ext = blob.type === "image/png" ? "png" : blob.type === "image/webp" ? "webp" : "jpg";
+  const path = `${folder}/${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}.${ext}`;
+  const { error } = await sb!.storage.from("photos").upload(path, blob, { contentType: blob.type || "image/jpeg", cacheControl: "31536000", upsert: false });
+  if (error) throw new Error(error.message);
+  return sb!.storage.from("photos").getPublicUrl(path).data.publicUrl;
+}
+async function withStoredPhotos(c: "products" | "merchants", r: any) {
+  if (!hasInlinePhoto(r)) return r;
+  const folder = c === "products" ? r.merchantId : r.id;
+  const out = { ...r };
+  if (Array.isArray(r.images)) out.images = await Promise.all(r.images.map((x: string) => (isInline(x) ? uploadPhoto(folder, x) : x)));
+  if (isInline(r.logo)) out.logo = await uploadPhoto(folder, r.logo);
+  return out;
+}
 export { COMMUNES };

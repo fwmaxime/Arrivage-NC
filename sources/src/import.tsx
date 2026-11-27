@@ -1,5 +1,17 @@
-import React, { useMemo, useRef, useState } from "react";
-import * as XLSX from "xlsx";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+// L'outil Excel (≈ 420 Ko) n'est chargé que quand un commerçant ouvre l'import, pour alléger le site des visiteurs.
+// Fichier servi par le site lui-même : /assets/xlsx-0.18.5.min.js (copie de node_modules/xlsx/dist/xlsx.full.min.js).
+let xlsxP: Promise<any> | null = null;
+function loadXLSX(): Promise<any> {
+  if ((window as any).XLSX) return Promise.resolve((window as any).XLSX);
+  return xlsxP ||= new Promise((ok, ko) => {
+    const sc = document.createElement("script");
+    sc.src = "/assets/xlsx-0.18.5.min.js";
+    sc.onload = () => ok((window as any).XLSX);
+    sc.onerror = () => { xlsxP = null; ko(new Error("Chargement de l'outil Excel impossible")); };
+    document.head.appendChild(sc);
+  });
+}
 import { FileSpreadsheet, Download, Upload, Check, TriangleAlert, Crown, ArrowLeftRight, ChevronRight, RotateCcw, Package, ClipboardPaste, Sparkles, Info, RefreshCw, Pencil, ImagePlus, Trash2, X } from "lucide-react";
 import { CATEGORIES, STATUSES, planById, catById, fmtXPF, norm, Product, Status, CategoryId } from "./data";
 import { useStore, alertMatches, newId } from "./store";
@@ -98,9 +110,12 @@ export function ImportPage() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [editing, setEditing] = useState<number | null>(null);
   const premiumDemo: any = null;
+  useEffect(() => { loadXLSX().catch(() => {}); }, []);
 
   // ---------- Modèle Excel ----------
   const downloadTemplate = async () => {
+    let XLSX: any;
+    try { XLSX = await loadXLSX(); } catch { toast("Connexion impossible : réessayez dans un instant", "warn"); return; }
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet([COLS.map((c) => c.head + (c.req ? " *" : "")), ...sampleRows(me.stores).slice(0, 3)]);
     ws["!cols"] = COLS.map((c) => ({ wch: Math.max(14, c.head.length + 4) }));
@@ -150,6 +165,7 @@ export function ImportPage() {
   const readFile = async (file: File) => {
     try {
       if (/\.(csv|txt|tsv)$/i.test(file.name)) { analyse(parseText(await file.text()), file.name); return; }
+      const XLSX = await loadXLSX();
       const wb = XLSX.read(await file.arrayBuffer(), { type: "array", cellDates: true });
       const ws = wb.Sheets[wb.SheetNames[0]];
       analyse(XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: "" }) as unknown[][], file.name);

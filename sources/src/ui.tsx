@@ -50,7 +50,7 @@ export function ProductVisual({ p, variant = 0, className, rounded = true }: { p
   const src = p.images?.[variant] || (variant === 0 ? p.images?.[0] : undefined);
   const c = catById(p.category);
   if (src && !err) {
-    return <div className={cx("pv", rounded && "pv-r", className)}><img src={src} alt={p.name} onError={() => setErr(true)} loading="lazy" /></div>;
+    return <div className={cx("pv", rounded && "pv-r", className)}><img src={src} alt={p.name} loading="lazy" decoding="async" onError={() => setErr(true)} /></div>;
   }
   const Icon = c.icon;
   return (
@@ -69,7 +69,7 @@ export function ProductVisual({ p, variant = 0, className, rounded = true }: { p
 
 export function MerchantLogo({ m, size = 44 }: { m: Merchant; size?: number }) {
   const initials = m.name.split(/\s+/).filter((w) => w.length > 2 || /^[A-Z]/.test(w)).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
-  if (m.logo) return <img className="mlogo" src={m.logo} alt={m.name} style={{ width: size, height: size, borderRadius: m.shape === "round" ? "50%" : 12 }} />;
+  if (m.logo) return <img className="mlogo" src={m.logo} alt={m.name} loading="lazy" decoding="async" style={{ width: size, height: size, borderRadius: m.shape === "round" ? "50%" : 12 }} />;
   return (
     <span className={cx("mlogo", `mlogo-${m.shape}`)} style={{ width: size, height: size, background: m.color, color: m.ink, fontSize: size * 0.36 }} aria-hidden>
       {initials}
