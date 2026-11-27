@@ -13,25 +13,6 @@ export interface Review {
   reply?: { text: string; at: string }; modNote?: string;
 }
 
-const iso = (h: number) => new Date(Date.now() - h * 36e5).toISOString();
-export function seedReviews(): Review[] {
-  const R = (id: string, merchantId: string, rating: number, text: string, author: string, h: number, extra: Partial<Review> = {}): Review =>
-    ({ id, merchantId, rating, text, author, authorId: "u-demo", at: iso(h), status: "published", verified: true, ...extra });
-  return [
-    R("rv1", "m-pixel", 5, "Écran récupéré le lendemain, bien emballé et testé devant moi. Équipe au top.", "Samuel N.", 28, { productId: "p003", productName: "Écran gaming 27 pouces QHD 180 Hz", reservationId: "rs3", reply: { text: "Merci Samuel, bon jeu !", at: iso(20) } }),
-    R("rv2", "m-pixel", 4, "Bons prix sur les accessoires, un peu d'attente le samedi.", "Mélanie K.", 140, { verified: false }),
-    R("rv3", "m-pixel", 5, "Les seuls à avoir eu la PS5 Pro dès la sortie, merci !", "Teva R.", 300, { productId: "p001", productName: "PlayStation 5 Pro", verified: false }),
-    R("rv4", "m-baie", 5, "Grand choix de pointures, conseils au top pour les tailles.", "Marie P.", 38, { productId: "p011", productName: "Nike Air Max 95", reservationId: "rs4" }),
-    R("rv5", "m-baie", 3, "Belles paires mais la rupture de stock après mon paiement m'a déçue. Remboursement rapide quand même.", "Inès R.", 100, { productId: "p013", productName: "Adidas Samba OG", reservationId: "rs6", verified: true, reply: { text: "Désolés Inès, la paire est de retour, on vous l'a mise de côté.", at: iso(96) } }),
-    R("rv6", "m-recif", 5, "Kit complet, rien ne manquait. Ils m'ont même montré les nœuds.", "Tom G.", 70, { productId: "p022", productName: "Kit pêche au large complet", reservationId: "rs7" }),
-    R("rv7", "m-froid", 4, "Clim installée rapidement, retrait simple avec le code.", "Famille T.", 95, { productId: "p036", productName: "Climatiseur split inverter 12 000 BTU", reservationId: "rs9" }),
-    R("rv8", "m-koumac", 5, "Enfin un magasin en Brousse qui annonce ses arrivages !", "Sarah M.", 160, { productId: "p009", productName: "Enceinte Bluetooth étanche Flip 6", reservationId: "rs11" }),
-    R("rv9", "m-niaouli", 4, "Très beaux meubles, livraison à organiser soi-même.", "Claire D.", 220, { verified: false }),
-    R("rv10", "m-pixel", 1, "ARNAQUE !!! allez voir mon site pour des consoles moins chères www.exemple-promo.test", "promo_987", 2, { verified: false, status: "pending" }),
-    R("rv11", "m-baie", 4, "Accueil sympa, j'ai pu essayer trois modèles avant de choisir.", "Jordan K.", 6, { verified: false, status: "pending" }),
-  ];
-}
-
 export const published = (list: Review[], merchantId: string, productId?: string) => list.filter((r) => r.status === "published" && r.merchantId === merchantId && (!productId || r.productId === productId));
 export function ratingOf(list: Review[], merchantId: string) {
   const l = published(list, merchantId);
@@ -97,7 +78,7 @@ function ReviewForm({ res, onClose }: { res: Reservation; onClose: () => void })
   const [rating, setRating] = useState(0);
   const [hover, setHover] = useState(0);
   const [text, setText] = useState("");
-  const [author, setAuthor] = useState("Visiteur démo");
+  const [author, setAuthor] = useState(s.me?.displayName || "");
   const ok = rating > 0 && text.trim().length >= 10;
   const auto = !s.settings.moderateReviews;
   return (
@@ -112,7 +93,7 @@ function ReviewForm({ res, onClose }: { res: Reservation; onClose: () => void })
       <p className="note"><ShieldCheck size={14} /> {auto ? "Votre avis sera publié immédiatement avec la mention « Achat vérifié »." : "Votre avis sera publié après vérification par la modération, avec la mention « Achat vérifié »."}</p>
       <div className="row-end" style={{ marginTop: 12 }}><Btn variant="ghost" onClick={onClose}>Annuler</Btn><Btn disabled={!ok} icon={Check} onClick={() => {
         mutate((d) => {
-          d.reviews.unshift({ id: newId(), merchantId: res.merchantId, productId: res.productId, productName: res.productName, reservationId: res.id, verified: true, rating, text: text.trim(), author: author.trim() || "Anonyme", authorId: "visitor", at: new Date().toISOString(), status: auto ? "published" : "pending" });
+          d.reviews.unshift({ id: newId(), merchantId: res.merchantId, productId: res.productId, productName: res.productName, reservationId: res.id, verified: true, rating, text: text.trim(), author: author.trim() || "Anonyme", authorId: s.me!.id, at: new Date().toISOString(), status: auto ? "published" : "pending" });
           log(d, `Nouvel avis ${rating}/5 sur ${m?.name}${auto ? "" : " (à modérer)"}`, "consommateur");
         });
         toast(auto ? "Merci, votre avis est publié" : "Merci, votre avis sera publié après modération"); onClose();
@@ -132,7 +113,7 @@ export function MerchantReviews({ merchantId }: { merchantId: string }) {
   const rt = ratingOf(s.reviews, merchantId);
   return (
     <div className="page">
-      <div className="page-head"><div><h1 className="page-title">Avis clients</h1><p className="muted">Les clients notent votre commerce après un retrait. Répondez publiquement, avec courtoisie · <DemoTag>Avis fictifs</DemoTag></p></div>{rt.n > 0 && <div className="rv-big rv-inline"><b>{avgTxt(rt.avg)}</b><Stars value={rt.avg} size={16} /><span className="micro">{rt.n} avis publiés</span></div>}</div>
+      <div className="page-head"><div><h1 className="page-title">Avis clients</h1><p className="muted">Les clients notent votre commerce après un retrait. Répondez publiquement, avec courtoisie</p></div>{rt.n > 0 && <div className="rv-big rv-inline"><b>{avgTxt(rt.avg)}</b><Stars value={rt.avg} size={16} /><span className="micro">{rt.n} avis publiés</span></div>}</div>
       {pending > 0 && <div className="banner-info"><Info size={16} /> {pending} avis en cours de vérification par la modération ARRIVAGE.</div>}
       {!list.length ? <Empty icon={MessageSquare} title="Aucun avis publié" body="Les avis apparaîtront ici après les premiers retraits en magasin." /> : (
         <div className="reviews">

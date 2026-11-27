@@ -1,4 +1,4 @@
-// Comptes employés : rôles et permissions (données fictives)
+// Comptes employés : rôles et permissions 
 export type Role = "owner" | "manager" | "seller";
 export type Perm = "posts" | "publish" | "stock" | "reservations" | "reviews" | "stats" | "shop" | "moderation" | "billing" | "team";
 export interface Staff {
@@ -28,12 +28,3 @@ export const ROUTE_PERM: Record<string, Perm | null> = {
   reviews: "reviews", moderation: "moderation", plans: "billing", shop: "shop", team: "team",
 };
 export const MAX_STAFF = 10;
-const ago = (h: number) => new Date(Date.now() - h * 36e5).toISOString();
-export function seedStaff(): Staff[] {
-  return [
-    { id: "st1", merchantId: "m-baie", name: "Léa Martin", email: "lea.martin@baie-sneakers.demo", role: "manager", status: "active", invitedAt: ago(24 * 40), lastActive: ago(2), stores: ["Baie-des-Citrons", "Centre-ville"] },
-    { id: "st2", merchantId: "m-baie", name: "Jordan Kowal", email: "jordan@baie-sneakers.demo", role: "seller", status: "active", invitedAt: ago(24 * 21), lastActive: ago(26), stores: ["Centre-ville"] },
-    { id: "st3", merchantId: "m-baie", name: "Inès Lefèvre", email: "ines.lefevre@exemple.demo", role: "seller", status: "invited", invitedAt: ago(5), stores: ["Baie-des-Citrons"] },
-    { id: "st4", merchantId: "m-baie", name: "Kenzo Wahio", email: "kenzo@baie-sneakers.demo", role: "seller", status: "active", invitedAt: ago(24 * 60), lastActive: ago(4), stores: ["Baie-des-Citrons"] },
-  ];
-}

@@ -1,10 +1,10 @@
 import { AdminReservationsPanel } from "./reservations";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, AreaChart, Area, XAxis, YAxis, CartesianGrid } from "recharts";
 import { Users, Store, Package, BellRing, Search, Wallet, Flag, Check, Ban, Eye, EyeOff, Star, Trash2, ShieldCheck, Activity as ActIcon, Megaphone, RotateCcw, Info, Calculator } from "lucide-react";
-import { useStore } from "./store";
+import { DemandRaw, useStore } from "./store";
 import { useNav } from "./nav";
-import { CATEGORIES, PLANS, DEMAND, planById, catById, fmtXPF, fmtNum, fmtRel, norm } from "./data";
+import { CATEGORIES, PLANS, planById, catById, fmtXPF, fmtNum, fmtRel, norm } from "./data";
 import { Btn, IconBtn, Stat, Segmented, StatusPill, ProductVisual, MerchantLogo, Empty, DemoTag, cx, Confirm, Chip } from "./ui";
 import { StatePill } from "./merchant";
 
@@ -20,31 +20,35 @@ export function AdminOverview() {
   const mrr = active.reduce((a, m) => a + planById(m.plan).price, 0);
   const dist = PLANS.map((p) => ({ name: p.name, id: p.id, value: registered.filter((m) => m.plan === p.id).length }));
   const published = s.products.filter((p) => p.state === "published").length;
-  const platformAlerts = DEMAND.reduce((a, d) => a + d.alerts, 0) + s.alerts.length;
-  const searches = DEMAND.reduce((a, d) => a + d.searches, 0) * 9 + Object.values(s.searchLog).reduce((a, b) => a + b, 0);
-  const usersBase = 3480 + s.users.length;
+  const { demand } = useStore();
+  const [dm, setDm] = useState<DemandRaw | null>(null);
+  useEffect(() => { demand().then(setDm); }, []);
+  const platformAlerts = dm ? dm.alerts.length : 0;
+  const searches = dm ? Object.values(dm.searches).reduce((a, b) => a + Number(b), 0) : 0;
+  const usersBase = dm ? dm.users : s.users.length;
   const growth = useMemo(() => Array.from({ length: 12 }, (_, i) => {
-    const dt = new Date(Date.now() - (11 - i) * 7 * 864e5);
-    return { w: dt.toLocaleDateString("fr-FR", { day: "numeric", month: "short" }), users: Math.round(1450 + i * i * 14 + i * 95), merchants: Math.round(4 + i * 0.9) };
-  }), []);
+    const end = Date.now() - (11 - i) * 7 * 864e5;
+    const dt = new Date(end);
+    return { w: dt.toLocaleDateString("fr-FR", { day: "numeric", month: "short" }), users: s.users.filter((u) => new Date(u.joinedAt).getTime() <= end).length };
+  }), [s.users]);
   const openReports = s.reports.filter((r) => r.status === "open" || r.status === "fixed").length;
   return (
     <div className="page">
       <div className="page-head">
-        <div><h1 className="page-title">Supervision de la plateforme</h1><p className="muted">Vue globale de la démonstration · <DemoTag>Données fictives</DemoTag></p></div>
+        <div><h1 className="page-title">Supervision de la plateforme</h1><p className="muted">Vue globale de la plateforme ARRIVAGE</p></div>
         <Btn icon={Calculator} variant="outline" onClick={() => go("finance")}>Ouvrir le simulateur</Btn>
       </div>
       <div className="stats">
-        <Stat icon={Users} label="Utilisateurs" value={fmtNum(usersBase)} sub="Comptes consommateurs simulés" />
+        <Stat icon={Users} label="Utilisateurs" value={fmtNum(usersBase)} sub="Comptes créés" />
         <Stat icon={Store} label="Commerçants inscrits" value={fmtNum(registered.length)} sub={`${active.length} actifs · ${registered.length - active.length} suspendu(s) · ${pendingN} en attente`} />
         <Stat icon={Package} label="Publications en ligne" value={fmtNum(published)} sub={`${s.products.length} au total`} />
         <Stat icon={BellRing} label="Alertes actives" value={fmtNum(platformAlerts)} />
         <Stat icon={Search} label="Recherches (30 j)" value={fmtNum(searches)} />
-        <Stat icon={Wallet} label="MRR des comptes démo" value={fmtXPF(mrr)} sub="Somme des forfaits des commerces actifs" />
+        <Stat icon={Wallet} label="Revenu mensuel théorique" value={fmtXPF(mrr)} sub="Somme des forfaits des commerces actifs" />
       </div>
       <div className="dash-grid">
         <div className="panel panel-chart">
-          <div className="panel-head"><div><h3>Croissance de la plateforme</h3><span className="muted small">Utilisateurs cumulés, 12 dernières semaines · simulé</span></div></div>
+          <div className="panel-head"><div><h3>Croissance de la plateforme</h3><span className="muted small">Comptes cumulés, 12 dernières semaines</span></div></div>
           <div className="chart-h">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={growth} margin={{ top: 10, right: 8, left: -6, bottom: 0 }}>
@@ -108,7 +112,7 @@ export function AdminMerchants({ embedded }: { embedded?: boolean }) {
               <tr key={m.id} className={cx(m.status !== "active" && "is-muted")}>
                 <td><button className="cell-id cell-link" onClick={() => go("merchant", { id: m.id })} title="Voir la fiche détaillée"><MerchantLogo m={m} size={30} /><div><strong>{m.name}</strong><span className="muted small">inscrit le {new Date(m.joinedAt).toLocaleDateString("fr-FR")}</span></div></button></td>
                 <td>{m.commune}</td>
-                <td><select id={"pl-" + m.id} className="select select-sm" value={m.plan} onChange={(e) => upd(m.id, (x) => (x.plan = e.target.value), `${m.name} : forfait ${planById(e.target.value).name} (admin)`)} aria-label="Forfait">{PLANS.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></td>
+                <td><select id={"pl-" + m.id} className="select select-sm" value={m.plan} onChange={(e) => upd(m.id, (x) => { x.plan = e.target.value; x.planRequest = null; }, `${m.name} : forfait ${planById(e.target.value).name} (admin)`)} aria-label="Forfait">{PLANS.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select>{m.planRequest && m.planRequest !== m.plan && <div className="micro warn-txt">Demande : {planById(m.planRequest).name}</div>}</td>
                 <td>{s.products.filter((p) => p.merchantId === m.id && p.state === "published").length}</td>
                 <td>{(() => { const rs = s.reservations.filter((r) => r.merchantId === m.id); const v = rs.filter((r) => r.status !== "cancelled" && r.status !== "refunded").reduce((a, r) => a + r.total, 0); return rs.length ? <div className="cell-stack"><b>{rs.length}</b><span className="muted small">{fmtXPF(v)}</span></div> : <span className="muted">0</span>; })()}</td>
                 <td><button className={cx("tgl", m.verified && "is-on")} onClick={() => upd(m.id, (x) => (x.verified = !x.verified), `${m.name} ${m.verified ? "n'est plus vérifié" : "vérifié"}`)}>{m.verified ? <><ShieldCheck size={14} /> Vérifié</> : "Non vérifié"}</button></td>
@@ -129,20 +133,24 @@ export function AdminMerchants({ embedded }: { embedded?: boolean }) {
 }
 
 export function AdminUsers() {
-  const { s, mutate, toast } = useStore();
+  const { s, mutate, toast, log } = useStore();
+  const [q, setQ] = useState("");
+  const ROLE: Record<string, string> = { client: "Client", merchant: "Commerçant", admin: "Admin" };
+  const list = s.users.filter((u) => !q || norm(u.label + " " + u.email).includes(norm(q))).sort((a, b) => +new Date(b.joinedAt) - +new Date(a.joinedAt));
   return (
     <div className="page">
-      <div className="page-head"><div><h1 className="page-title">Utilisateurs fictifs</h1><p className="muted">Identifiants pseudonymes uniquement : la démo ne collecte aucune donnée personnelle.</p></div></div>
+      <div className="page-head"><div><h1 className="page-title">Utilisateurs</h1><p className="muted">{s.users.length} compte(s). Un compte bloqué ne peut plus réserver, signaler ni publier d'avis.</p></div></div>
+      <div className="search search-inline" style={{ maxWidth: 360, marginBottom: 16 }}><Search size={18} className="search-ico" /><input id="au-q" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Nom ou e-mail" aria-label="Rechercher" /></div>
       <div className="table-scroll panel p0">
         <table className="admin-table">
-          <thead><tr><th>Identifiant</th><th>Commune</th><th>Inscription</th><th>Alertes</th><th>Favoris</th><th>Statut</th><th></th></tr></thead>
+          <thead><tr><th>Compte</th><th>Rôle</th><th>Commune</th><th>Inscription</th><th>Alertes</th><th>Favoris</th><th>Statut</th><th></th></tr></thead>
           <tbody>
-            <tr><td><strong>Vous (visiteur démo)</strong></td><td>{s.profile.commune || "—"}</td><td>aujourd'hui</td><td>{s.alerts.length}</td><td>{s.favorites.length}</td><td>{s.profile.blocked ? <span className="pill pill-sm pill-red"><i />Bloqué</span> : <span className="pill pill-sm pill-green"><i />Actif</span>}</td><td className="cell-actions"><Btn size="sm" variant="ghost" icon={s.profile.blocked ? Check : Ban} onClick={() => { mutate((d) => { d.profile.blocked = !d.profile.blocked; }); toast(s.profile.blocked ? "Visiteur démo débloqué" : "Visiteur démo bloqué"); }}>{s.profile.blocked ? "Débloquer" : "Bloquer"}</Btn></td></tr>
-            {s.users.map((u) => (
+            {!list.length && <tr><td colSpan={8} className="muted">Aucun compte pour l'instant.</td></tr>}
+            {list.map((u) => (
               <tr key={u.id} className={cx(u.status === "blocked" && "is-muted")}>
-                <td><strong>{u.label}</strong></td><td>{u.commune}</td><td>{fmtRel(u.joinedAt)}</td><td>{u.alerts}</td><td>{u.favorites}</td>
+                <td><strong>{u.label}</strong><div className="muted small sel">{u.email}</div></td><td>{ROLE[u.role] || u.role}</td><td>{u.commune || "—"}</td><td>{fmtRel(u.joinedAt)}</td><td>{u.alerts}</td><td>{u.favorites}</td>
                 <td>{u.status === "active" ? <span className="pill pill-sm pill-green"><i />Actif</span> : <span className="pill pill-sm pill-red"><i />Bloqué</span>}</td>
-                <td className="cell-actions"><Btn size="sm" variant="ghost" icon={u.status === "active" ? Ban : Check} onClick={() => { mutate((d) => { const x = d.users.find((y) => y.id === u.id)!; x.status = x.status === "active" ? "blocked" : "active"; }); toast(u.status === "active" ? `${u.label} bloqué` : `${u.label} débloqué`); }}>{u.status === "active" ? "Bloquer" : "Débloquer"}</Btn></td>
+                <td className="cell-actions">{u.id !== s.me?.id && u.role !== "admin" && <Btn size="sm" variant="ghost" icon={u.status === "active" ? Ban : Check} onClick={() => { mutate((d) => { const x = d.users.find((y) => y.id === u.id)!; x.status = x.status === "active" ? "blocked" : "active"; log(d, `${u.label} ${x.status === "blocked" ? "bloqué" : "débloqué"}`, "admin"); }); toast(u.status === "active" ? `${u.label} bloqué` : `${u.label} débloqué`); }}>{u.status === "active" ? "Bloquer" : "Débloquer"}</Btn>}</td>
               </tr>
             ))}
           </tbody>

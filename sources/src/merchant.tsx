@@ -5,14 +5,15 @@ import {
   Calendar, Save, Send, Clock, TrendingUp, Info, Search, RotateCcw, Megaphone, Store, Timer, MapPin, Wand2, Target, ShoppingBag, Shirt,
 } from "lucide-react";
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid, BarChart, Bar, Cell, PieChart, Pie } from "recharts";
-import { CATEGORIES, COMMUNES, STATUSES, PLANS, DEMAND, catById, planById, fmtXPF, fmtNum, fmtRel, fmtDate, norm, Product, Merchant, Status, PlanId } from "./data";
+import { CATEGORIES, COMMUNES, STATUSES, PLANS, DemandItem, catById, planById, fmtXPF, fmtNum, fmtRel, fmtDate, norm, Product, Merchant, Status, PlanId } from "./data";
 import { useStore, alertMatches, newId, tokens, productHay } from "./store";
 import { useNav } from "./nav";
 import { Btn, IconBtn, StatusPill, Chip, ProductVisual, MerchantLogo, Modal, Empty, SectionHead, Segmented, Field, Stat, DemoTag, cx, Confirm } from "./ui";
 
 export const useMe = () => {
   const { s } = useStore();
-  return s.merchants.find((m) => m.id === s.currentMerchant) || s.merchants[0];
+  const mine = s.me?.role === "admin" ? s.merchants : s.merchants.filter((m) => m.ownerId && m.ownerId === s.me?.id);
+  return mine.find((m) => m.id === s.currentMerchant) || mine[0];
 };
 
 const monthCount = (products: Product[], mid: string) => {
@@ -20,7 +21,6 @@ const monthCount = (products: Product[], mid: string) => {
   return products.filter((p) => p.merchantId === mid && (p.state === "published" || p.state === "scheduled") && new Date(p.createdAt).getMonth() === n.getMonth() && new Date(p.createdAt).getFullYear() === n.getFullYear()).length;
 };
 
-function seeded(seed: number) { let x = seed % 2147483647; return () => (x = (x * 16807) % 2147483647) / 2147483647; }
 
 const tipStyle = { background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 10, fontSize: 12, color: "var(--fg)" };
 
@@ -43,38 +43,40 @@ export function MerchantDashboard() {
 
   const canPeriod = plan.can.stats === "advanced" || plan.can.stats === "detailed";
   const days = canPeriod ? Number(period) : 30;
+  const { merchantStats } = useStore();
+  const [raw, setRaw] = useState<{ d: string; m: string; c: string; n: number }[]>([]);
+  useEffect(() => { merchantStats(me.id).then(setRaw); }, [me.id]);
+  const field = ({ views: "views", favs: "favBase", contacts: "contacts" } as any)[metric];
   const series = useMemo(() => {
-    const r = seeded(me.id.length * 131 + days);
-    const tot = { views, favs, contacts }[metric as "views"] || views;
-    const base = tot / 45;
+    const byDay: Record<string, number> = {};
+    for (const r of raw) if (r.m === field) byDay[String(r.d).slice(0, 10)] = (byDay[String(r.d).slice(0, 10)] || 0) + r.n;
     return Array.from({ length: days }, (_, i) => {
       const dt = new Date(Date.now() - (days - 1 - i) * 864e5);
-      const wk = [0.7, 1, 1, 1.05, 1.15, 1.35, 1.2][dt.getDay()];
-      const trend = 0.75 + (i / days) * 0.5;
-      return { d: dt.toLocaleDateString("fr-FR", { day: "numeric", month: "short" }), v: Math.max(0, Math.round(base * wk * trend * (0.7 + r() * 0.6))) };
+      const key = new Date(dt.getTime() + 11 * 36e5).toISOString().slice(0, 10);
+      return { d: dt.toLocaleDateString("fr-FR", { day: "numeric", month: "short" }), v: byDay[key] || 0 };
     });
-  }, [days, metric, views, favs, contacts, me.id]);
+  }, [days, field, raw]);
   const top = mine.filter((p) => p.state === "published").sort((a, b) => b.views - a.views).slice(0, 5);
   const byCommune = useMemo(() => {
-    const r = seeded(me.id.length * 17);
-    const w = COMMUNES.slice(0, 7).map((c) => ({ name: c, value: Math.round((c === me.commune ? 40 : 6) + r() * 18) }));
-    const t = w.reduce((a, b) => a + b.value, 0);
-    return w.map((x) => ({ ...x, pct: Math.round((x.value / t) * 100) })).sort((a, b) => b.value - a.value);
-  }, [me.id]);
+    const agg: Record<string, number> = {};
+    for (const r of raw) if (r.m === "views") agg[r.c || "Non précisée"] = (agg[r.c || "Non précisée"] || 0) + r.n;
+    const t = Object.values(agg).reduce((a, b) => a + b, 0) || 1;
+    return Object.entries(agg).map(([name, value]) => ({ name, value, pct: Math.round((value / t) * 100) })).sort((a, b) => b.value - a.value).slice(0, 7);
+  }, [raw]);
 
   return (
     <div className="page">
       <div className="page-head">
         <div>
           <h1 className="page-title">Bonjour, {me.name}</h1>
-          <p className="muted">Vue d'ensemble de vos arrivages · <DemoTag>Statistiques simulées</DemoTag></p>
+          <p className="muted">Vue d'ensemble de vos arrivages</p>
         </div>
         <Btn icon={Plus} onClick={() => go("publish")}>Publier un arrivage</Btn>
       </div>
 
       {me.status !== "active" && <div className="banner-warn"><Info size={16} /> {me.status === "pending" ? "Compte en attente de validation par l'équipe ARRIVAGE : vos publications ne sont pas encore visibles." : "Compte suspendu par la modération : vos publications ne sont plus visibles."}</div>}
       {s.reservations.some((r) => r.merchantId === me.id && r.status === "paid") && (
-        <button className="resbanner" onClick={() => go("reservations")}><ShoppingBag size={18} /> <span><strong>{s.reservations.filter((r) => r.merchantId === me.id && r.status === "paid").length} réservation(s) payée(s) à préparer.</strong> Le client a déjà réglé en ligne et viendra retirer en magasin.</span><strong>Voir</strong></button>
+        <button className="resbanner" onClick={() => go("reservations")}><ShoppingBag size={18} /> <span><strong>{s.reservations.filter((r) => r.merchantId === me.id && r.status === "paid").length} réservation(s) à préparer.</strong> Le client viendra retirer et payer en magasin.</span><strong>Voir</strong></button>
       )}
       {s.reports.some((r) => r.merchantUnread && mine.some((p) => p.id === r.productId)) && (
         <button className="modbanner" onClick={() => go("moderation")}><Info size={16} /> <span>Vous avez un nouveau message de la modération concernant une publication signalée.</span><strong>Voir</strong></button>
@@ -148,7 +150,7 @@ export function MerchantDashboard() {
           <div className="panel-head"><h3>Provenance des vues</h3><span className="muted small">par commune</span></div>
           {plan.can.stats === "detailed" ? (
             <div className="commune-bars">
-              {byCommune.map((c) => (<div key={c.name} className="cbar"><span>{c.name}</span><div className="bar"><i style={{ width: c.pct * 2 + "%" }} /></div><strong>{c.pct} %</strong></div>))}
+              {!byCommune.length && <span className="muted small">Pas encore de vues enregistrées.</span>}{byCommune.map((c) => (<div key={c.name} className="cbar"><span>{c.name}</span><div className="bar"><i style={{ width: c.pct * 2 + "%" }} /></div><strong>{c.pct} %</strong></div>))}
             </div>
           ) : <Locked title="Statistiques détaillées incluses dans Premium" onUpgrade={() => go("plans")} small />}
         </div>
@@ -421,7 +423,7 @@ export function PublishPage({ params }: any) {
       </div>
 
       <Modal open={schedOpen} onClose={() => setSchedOpen(false)} title="Programmer la publication">
-        <p className="muted" style={{ marginTop: 0 }}>Programmation simulée : la publication sera mise en ligne automatiquement à l'heure choisie tant que la démo est ouverte. Essayez dans 1 ou 2 minutes.</p>
+        <p className="muted" style={{ marginTop: 0 }}>La publication sera visible automatiquement par les clients à l'heure choisie.</p>
         <Field label="Date et heure de mise en ligne" error={err.schedule} htmlFor="pf-sched"><input id="pf-sched" type="datetime-local" min={minSched} value={f.schedule} onChange={(e) => set("schedule", e.target.value)} /></Field>
         <div className="chips-wrap" style={{ margin: "10px 0 16px" }}>
           {[2, 60, 24 * 60].map((mins) => <Chip key={mins} onClick={() => set("schedule", new Date(Date.now() + mins * 60e3 - new Date().getTimezoneOffset() * 60e3).toISOString().slice(0, 16))}>{mins === 2 ? "Dans 2 min" : mins === 60 ? "Dans 1 h" : "Demain même heure"}</Chip>)}
@@ -432,8 +434,45 @@ export function PublishPage({ params }: any) {
   );
 }
 
+// Demande réelle : alertes actives et recherches des 30 derniers jours, agrégées sans identité
+let demandCache: { at: number; items: DemandItem[] } | null = null;
+export function useDemand() {
+  const { s, demand } = useStore();
+  const [items, setItems] = useState<DemandItem[]>(demandCache?.items || []);
+  useEffect(() => {
+    if (demandCache && Date.now() - demandCache.at < 60000) { setItems(demandCache.items); return; }
+    demand().then((raw) => {
+      if (!raw) return;
+      const map = new Map<string, DemandItem & { budgets: number[]; cats: Record<string, number> }>();
+      const get = (q: string) => {
+        const k = norm(q).trim();
+        if (!map.has(k)) map.set(k, { query: q.trim(), category: "" as any, searches: 0, alerts: 0, avgBudget: 0, communes: {}, trend: 0, budgets: [], cats: {} });
+        return map.get(k)!;
+      };
+      for (const a of raw.alerts) {
+        if (!a.q || !a.q.trim()) continue;
+        const it = get(a.q); it.alerts++;
+        if (a.b && Number(a.b) > 0) it.budgets.push(Number(a.b));
+        if (a.c) it.cats[a.c] = (it.cats[a.c] || 0) + 1;
+        if (a.m) it.communes[a.m] = (it.communes[a.m] || 0) + 1;
+      }
+      for (const [q, n] of Object.entries(raw.searches)) { if (q.trim().length < 2) continue; const it = get(q); it.searches += Number(n); const prev = Number(raw.prev[q] || 0); it.trend = prev ? Math.round(((Number(n) - prev) / prev) * 100) : 0; }
+      const list = Array.from(map.values()).map((it) => {
+        let cat = Object.entries(it.cats).sort((a, b) => b[1] - a[1])[0]?.[0];
+        if (!cat) { const t = tokens(it.query); const p = s.products.find((x) => { const hay = productHay(x); return t.length > 0 && t.filter((y) => hay.includes(y)).length / t.length >= 0.75; }); cat = p?.category; }
+        return { query: it.query, category: (cat || "") as any, searches: it.searches, alerts: it.alerts, avgBudget: it.budgets.length ? Math.round(it.budgets.reduce((a, b) => a + b, 0) / it.budgets.length) : 0, communes: it.communes, trend: it.trend };
+      });
+      demandCache = { at: Date.now(), items: list };
+      setItems(list);
+    });
+  }, []);
+  return items;
+}
+const catLabel = (c: string) => (c ? catById(c).label : "Recherche libre");
+
 function MatchHint({ p }: { p: Product }) {
   const { s } = useStore();
+  const DEMAND = useDemand();
   const m = s.merchants.find((x) => x.id === p.merchantId);
   const n = p.name.length >= 3 ? s.alerts.filter((a) => a.active && alertMatches(a, p, m)).length : 0;
   const demand = p.name.length >= 3 ? DEMAND.filter((d) => { const t = tokens(d.query); const hay = productHay(p, m); return t.filter((x) => hay.includes(x)).length / t.length >= 0.6; }) : [];
@@ -441,8 +480,7 @@ function MatchHint({ p }: { p: Product }) {
     <div className="matchhint">
       <Target size={16} />
       <div>
-        {n > 0 ? <strong>{n} alerte(s) active(s) dans cette démo seront déclenchées à la publication.</strong> : <span>Aucune alerte de la démo ne correspond encore.</span>}
-        {demand.length > 0 && <div className="muted small">Demande locale : « {demand[0].query} » · {demand[0].alerts} alertes actives sur la plateforme (simulé).</div>}
+        {demand.length > 0 ? <strong>Demande locale : « {demand[0].query} » · {demand[0].alerts} alerte(s) active(s) et {demand[0].searches} recherche(s) sur ARRIVAGE.</strong> : <span>Les clients dont l'alerte correspond seront prévenus à leur prochaine visite.</span>}
       </div>
     </div>
   );
@@ -456,23 +494,13 @@ export function DemandPage() {
   const plan = planById(me.plan);
   const [commune, setCommune] = useState("Nouméa");
   const catalog = s.products.filter((p) => p.state === "published" && p.status !== "out");
+  const raw = useDemand();
   const items = useMemo(() => {
-    const list = DEMAND.map((d) => ({ ...d, communes: { ...d.communes } }));
-    // recherches réelles de la session et alertes de la démo, agrégées sans identité
-    for (const [q, n] of Object.entries(s.searchLog)) {
-      const hit = list.find((d) => norm(d.query) === norm(q) || tokens(d.query).every((t) => norm(q).includes(t)));
-      if (hit) hit.searches += n;
-      else list.push({ query: q, category: "loisirs" as any, searches: n, alerts: 0, avgBudget: 0, communes: {}, trend: 0, ...(({ fromSession: true }) as any) });
-    }
-    for (const a of s.alerts.filter((x) => x.active)) {
-      const hit = list.find((d) => tokens(d.query).filter((t) => norm(a.query).includes(t)).length / tokens(d.query).length >= 0.6);
-      if (hit) hit.alerts += 1;
-    }
-    return list.map((d) => ({ ...d, available: catalog.some((p) => { const t = tokens(d.query); const hay = productHay(p); return t.length > 0 && t.filter((x) => hay.includes(x)).length / t.length >= 0.75; }) })).sort((a, b) => b.searches - a.searches);
-  }, [s.searchLog, s.alerts, s.products]);
+    return raw.map((d) => ({ ...d, available: catalog.some((p) => { const t = tokens(d.query); const hay = productHay(p); return t.length > 0 && t.filter((x) => hay.includes(x)).length / t.length >= 0.75; }) })).sort((a, b) => b.searches - a.searches);
+  }, [raw, s.products]);
   const byCat = useMemo(() => {
     const agg: Record<string, number> = {};
-    items.forEach((d) => (agg[d.category] = (agg[d.category] || 0) + d.searches));
+    items.forEach((d) => { if (d.category) agg[d.category] = (agg[d.category] || 0) + d.searches + d.alerts; });
     return Object.entries(agg).map(([k, v]) => ({ name: catById(k).label, value: v })).sort((a, b) => b.value - a.value).slice(0, 6);
   }, [items]);
   const local = items.filter((d) => d.communes[commune]).map((d) => ({ q: d.query, n: d.communes[commune] })).sort((a, b) => b.n - a.n).slice(0, 6);
@@ -487,6 +515,7 @@ export function DemandPage() {
         <Stat icon={Target} label="Produits demandés absents" value={fmtNum(missing.length)} tone="accent" />
         <Stat icon={TrendingUp} label="Plus forte hausse" value={[...items].sort((a, b) => b.trend - a.trend)[0]?.query || "—"} sub={`+${[...items].sort((a, b) => b.trend - a.trend)[0]?.trend || 0} % sur 30 j`} />
       </div>
+      {!items.length && <Empty icon={Search} title="Pas encore assez de données" body="Les recherches et les alertes des clients apparaîtront ici au fil des jours." />}
       <div className="dash-grid">
         <div className="panel panel-chart">
           <div className="panel-head"><h3>Produits les plus recherchés</h3><span className="muted small">recherches · 30 derniers jours</span></div>
@@ -494,8 +523,8 @@ export function DemandPage() {
             <div className="dt-head"><span>Produit</span><span>Recherches</span><span>Alertes</span><span>Budget moyen</span><span>Catalogue</span></div>
             {items.slice(0, 10).map((d) => (
               <div key={d.query} className="dt-row">
-                <span className="dt-q"><strong>{d.query}</strong><em>{catById(d.category).label}{(d as any).fromSession ? " · recherche de la session" : ""}</em></span>
-                <span><div className="bar bar-inline"><i style={{ width: Math.min(100, (d.searches / items[0].searches) * 100) + "%" }} /></div><b>{fmtNum(d.searches)}</b></span>
+                <span className="dt-q"><strong>{d.query}</strong><em>{catLabel(d.category)}</em></span>
+                <span><div className="bar bar-inline"><i style={{ width: Math.min(100, (d.searches / Math.max(1, items[0].searches)) * 100) + "%" }} /></div><b>{fmtNum(d.searches)}</b></span>
                 <span>{fmtNum(d.alerts)}</span>
                 <span>{d.avgBudget ? fmtXPF(d.avgBudget) : "—"}</span>
                 <span>{d.available ? <span className="pill pill-sm pill-green"><i />Disponible</span> : <span className="pill pill-sm pill-orange"><i />Absent</span>}</span>
@@ -542,7 +571,7 @@ export function DemandPage() {
   return (
     <div className="page">
       <div className="page-head">
-        <div><h1 className="page-title">Demande locale</h1><p className="muted">Ce que les Calédoniens recherchent, pour anticiper vos commandes fournisseurs. Données agrégées et anonymes · <DemoTag>Données simulées</DemoTag></p></div>
+        <div><h1 className="page-title">Demande locale</h1><p className="muted">Ce que les Calédoniens recherchent, pour anticiper vos commandes fournisseurs. Données réelles, agrégées et anonymes.</p></div>
       </div>
       {plan.can.demand ? body : (
         <div className="locked-wrap">
@@ -581,7 +610,7 @@ export function PlansPage({ merchantId, admin }: { merchantId?: string; admin?: 
     <div className="page">
       {!admin && (
         <div className="page-head plans-head">
-          <div><h1 className="page-title">Forfaits professionnels</h1><p className="muted">Gratuit pour les consommateurs, financé par les commerçants. Changement de forfait simulé, aucun paiement réel.</p></div>
+          <div><h1 className="page-title">Forfaits professionnels</h1><p className="muted">Gratuit pour les consommateurs, financé par les commerçants. Choisissez un forfait : l'équipe ARRIVAGE vous contacte pour l'activer.</p></div>
         </div>
       )}
       <div className="plans">
@@ -594,7 +623,7 @@ export function PlansPage({ merchantId, admin }: { merchantId?: string; admin?: 
               <div className="plan-price"><strong>{p.price ? p.price.toLocaleString("fr-FR") : "0"}</strong><span> F CFP / mois</span></div>
               <p className="plan-tag">{p.tagline}</p>
               <ul className="checks">{p.features.map((f) => <li key={f}><Check size={15} />{f}</li>)}</ul>
-              <Btn className="w-full" variant={current ? "outline" : p.id === "premium" ? "accent" : "primary"} disabled={current} onClick={() => setPick(p.id)}>{current ? "Forfait actuel" : "Choisir " + p.name}</Btn>
+              <Btn className="w-full" variant={current ? "outline" : p.id === "premium" ? "accent" : "primary"} disabled={current} onClick={() => setPick(p.id)}>{current ? "Forfait actuel" : m.planRequest === p.id ? "Demande envoyée" : "Choisir " + p.name}</Btn>
             </div>
           );
         })}
@@ -611,11 +640,12 @@ export function PlansPage({ merchantId, admin }: { merchantId?: string; admin?: 
       <Modal open={!!pick} onClose={() => setPick(null)} title={`Passer au forfait ${pick ? planById(pick).name : ""}`}>
         {pick && <>
           <p className="muted" style={{ marginTop: 0 }}>{m.name} passera de {planById(m.plan).name} à {planById(pick).name} ({planById(pick).price ? fmtXPF(planById(pick).price) + " / mois" : "gratuit"}).</p>
-          <div className="banner-info"><Info size={16} /> Simulation : aucun moyen de paiement n'est demandé et aucun montant n'est prélevé.</div>
+          {admin || !planById(pick).price ? null : <div className="banner-info"><Info size={16} /> Aucun paiement en ligne : votre demande est transmise à l'équipe ARRIVAGE, qui vous contacte pour l'activation et la facturation.</div>}
           <div className="row-end"><Btn variant="ghost" onClick={() => setPick(null)}>Annuler</Btn><Btn onClick={() => {
-            mutate((d) => { const x = d.merchants.find((y) => y.id === m.id)!; const old = x.plan; x.plan = pick; if (pick !== "premium") d.products.forEach((p) => { if (p.merchantId === m.id) p.sponsored = false; }); log(d, `${m.name} : forfait ${planById(old).name} → ${planById(pick).name}`, admin ? "admin" : "commerçant"); });
-            toast(`Forfait ${planById(pick).name} activé (simulation)`); setPick(null);
-          }}>Confirmer le changement</Btn></div>
+            const direct = admin || s.me?.role === "admin";
+            mutate((d) => { const x = d.merchants.find((y) => y.id === m.id)!; const old = x.plan; if (direct) { x.plan = pick; x.planRequest = null; if (pick !== "premium") d.products.forEach((p) => { if (p.merchantId === m.id) p.sponsored = false; }); } else x.planRequest = pick; log(d, direct ? `${m.name} : forfait ${planById(old).name} → ${planById(pick).name}` : `${m.name} demande le forfait ${planById(pick).name}`, direct ? "admin" : "commerçant"); });
+            toast(direct ? `Forfait ${planById(pick).name} activé` : `Demande envoyée : l'équipe ARRIVAGE vous recontacte`); setPick(null);
+          }}>{admin || s.me?.role === "admin" ? "Confirmer le changement" : "Envoyer la demande"}</Btn></div>
         </>}
       </Modal>
     </div>

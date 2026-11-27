@@ -79,7 +79,7 @@ export function AdminReports() {
               {p ? <span className="post-thumb"><ProductVisual p={p} /></span> : <span className="post-thumb" />}
               <div className="post-main">
                 <div className="post-title"><Flag size={14} /> <strong>{r.reason}</strong><ReportPill status={r.status} />{r.adminUnread && <span className="dot-new">Nouveau</span>}</div>
-                <div className="post-meta"><span>{p ? p.name : "Publication supprimée"}</span>{m && <span className="muted">{m.name}</span>}<span className="muted">signalé {fmtRel(r.at)} par {(r.reporterId || "visitor") === "visitor" ? "vous (visiteur démo)" : s.users.find((u) => u.id === r.reporterId)?.label}</span></div>
+                <div className="post-meta"><span>{p ? p.name : "Publication supprimée"}</span>{m && <span className="muted">{m.name}</span>}<span className="muted">signalé {fmtRel(r.at)} par {r.reporterId === s.me?.id ? "vous" : s.users.find((u) => u.id === r.reporterId)?.label || "un utilisateur"}</span></div>
                 {last && last.kind !== "created" && <div className="post-last muted small">Dernière action : {last.text}</div>}
               </div>
               <span className="post-go">Traiter <ChevronRight size={16} /></span>
@@ -152,16 +152,15 @@ function ReportDesk({ id, onClose }: { id: string | null; onClose: () => void })
     });
     toast(closeAfter ? "Publication corrigée et signalement clos" : "Publication corrigée, visible immédiatement côté consommateur");
   };
-  const rid = r.reporterId || "visitor";
+  const rid = r.reporterId || "";
   const reporterUser = s.users.find((u) => u.id === rid);
-  const reporterLabel = rid === "visitor" ? "Visiteur démo (vous)" : reporterUser?.label || "Utilisateur inconnu";
-  const reporterBlocked = rid === "visitor" ? !!s.profile.blocked : reporterUser?.status === "blocked";
-  const reporterCount = s.reports.filter((x) => (x.reporterId || "visitor") === rid).length;
-  const reporterRejected = s.reports.filter((x) => (x.reporterId || "visitor") === rid && x.history.some((h) => h.text.startsWith("Signalement classé : information"))).length;
+  const reporterLabel = rid === s.me?.id ? "vous" : reporterUser?.label || "Utilisateur inconnu";
+  const reporterBlocked = reporterUser?.status === "blocked";
+  const reporterCount = s.reports.filter((x) => (x.reporterId || "") === rid).length;
+  const reporterRejected = s.reports.filter((x) => (x.reporterId || "") === rid && x.history.some((h) => h.text.startsWith("Signalement classé : information"))).length;
   const toggleReporter = (block: boolean) => {
     mutate((d) => {
-      if (rid === "visitor") d.profile.blocked = block;
-      else { const u = d.users.find((y) => y.id === rid); if (u) u.status = block ? "blocked" : "active"; }
+      { const u = d.users.find((y) => y.id === rid); if (u) u.status = block ? "blocked" : "active"; }
       const x = d.reports.find((y) => y.id === r.id)!;
       x.history.push(ev("admin", "status", block ? `Auteur du signalement (${reporterLabel}) bloqué` : `Auteur du signalement (${reporterLabel}) débloqué`));
       if (block && (x.status === "open" || x.status === "waiting")) { x.status = "resolved"; x.history.push(ev("admin", "status", "Signalement classé : auteur bloqué pour abus")); }
@@ -217,7 +216,7 @@ function ReportDesk({ id, onClose }: { id: string | null; onClose: () => void })
                   <Btn variant="outline" icon={Copy} onClick={() => copy(msg, "Message")}>Copier pour un e-mail</Btn>
                   <Btn icon={Send} onClick={sendMsg} disabled={!m}>Envoyer dans ARRIVAGE</Btn>
                 </div>
-                <p className="note"><Info size={14} /> Démo : le message est transmis dans l'application, aucun e-mail ni SMS réel n'est envoyé. Pour un vrai contact, copiez le message ou les coordonnées.</p>
+                <p className="note"><Info size={14} /> Le message apparaît dans l'espace du commerçant à sa prochaine connexion. Pour un contact immédiat, copiez le message ou les coordonnées.</p>
               </div>
             )}
             {tab === "call" && m && (
