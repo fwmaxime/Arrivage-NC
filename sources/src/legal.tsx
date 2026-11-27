@@ -70,7 +70,7 @@ function Mentions() {
       <p>Les annonces, prix, stocks, photos et horaires sont publiés sous la seule responsabilité des commerçants qui les déclarent. ARRIVAGE ne vend aucun produit et n'intervient pas dans la vente, qui se fait en magasin, directement auprès du commerçant.</p>
       <p>Pour signaler un contenu illicite ou erroné, utilisez le bouton « Signaler » de l'annonce ou écrivez à <a href={`mailto:${EDITOR.email}`}>{EDITOR.email}</a>. Nous le retirons rapidement s'il est manifestement illicite.</p>
       <h2>Propriété intellectuelle</h2>
-      <p>Le nom ARRIVAGE, le logo et la présentation du site appartiennent à ses éditeurs. Les marques et photos des produits restent la propriété de leurs titulaires. Les fonds de carte proviennent d'OpenStreetMap (© contributeurs OpenStreetMap), via OpenFreeMap, et d'Esri pour la vue satellite.</p>
+      <p>Le nom ARRIVAGE, le logo et la présentation du site appartiennent à ses éditeurs. Les marques et photos des produits restent la propriété de leurs titulaires.</p>
     </>
   );
 }
@@ -92,7 +92,7 @@ function Privacy() {
       <h2>Pourquoi</h2>
       <p>Uniquement pour faire fonctionner le service : afficher les arrivages, vous prévenir quand une alerte correspond, permettre aux commerçants de publier et de voir l'intérêt pour leurs produits, et modérer les contenus. Aucune publicité, aucune revente de données, aucun profilage commercial.</p>
       <h2>Cookies et stockage local</h2>
-      <p>ARRIVAGE n'utilise aucun cookie publicitaire ni outil de mesure d'audience tiers. Le navigateur garde seulement ce qui est nécessaire au fonctionnement : votre session de connexion, vos préférences et une copie de vos favoris et alertes. Les polices de caractères sont chargées depuis Google Fonts et les fonds de carte depuis OpenFreeMap et Esri : ces services voient votre adresse IP, comme pour tout site qui les utilise.</p>
+      <p>ARRIVAGE n'utilise aucun cookie publicitaire ni outil de mesure d'audience tiers. Le navigateur garde seulement ce qui est nécessaire au fonctionnement : votre session de connexion, vos préférences et une copie de vos favoris et alertes. Les polices de caractères sont chargées depuis Google Fonts, qui voit votre adresse IP comme pour tout site qui les utilise.</p>
       <h2>Où sont les données et combien de temps</h2>
       <p>Les données des comptes sont stockées chez Supabase, sur des serveurs à Sydney (Australie). Elles sont gardées tant que le compte existe. Quand vous supprimez votre compte, votre profil, vos favoris, alertes, avis et anciennes réservations sont effacés immédiatement ; vos signalements sont conservés sans lien avec vous.</p>
       <h2>Vos droits</h2>
