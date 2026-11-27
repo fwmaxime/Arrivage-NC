@@ -406,13 +406,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   function bump(t: string, rid: string, field: string, delta: number) {
     sb?.rpc("bump", { t, rid, field, delta, com: cur.current.profile.commune || "" }).then(({ error }) => { if (error) console.warn("bump", error.message); });
   }
-  async function push(c: Coll, rows: any[]) {
+  async function push(c: Coll, rows: any[], migration = false) {
     const orig = rows;
     // Photos : une image encore en texte (data:…) est d'abord envoyée dans le stockage Supabase, la fiche ne garde que son adresse.
     if (c === "products" || c === "merchants") {
       try { rows = await Promise.all(rows.map((r) => withStoredPhotos(c, r))); }
       // stockage pas encore prêt (script photos.sql non lancé) : on garde l'ancienne méthode, la photo reste dans la fiche
-      catch (e: any) { warn("photos: " + (e?.message || e)); storageOff = true; rows = orig; }
+      catch (e: any) { console.warn("photos: " + (e?.message || e)); storageOff = true; if (migration) return; rows = orig; }
     }
     const payload = rows.map((r) => ({ id: r.id, data: r }));
     const q = c === "activity" ? sb!.from(c).insert(payload) : sb!.from(c).upsert(payload).select("id,data");
@@ -436,7 +436,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     try {
       for (const c of ["products", "merchants"] as const) {
         const rows = (st as any)[c].filter((r: any) => hasInlinePhoto(r) && canWrite(st, c, r));
-        for (let i = 0; i < rows.length; i += 5) await push(c, rows.slice(i, i + 5));
+        for (let i = 0; i < rows.length && !storageOff; i += 5) await push(c, rows.slice(i, i + 5), true);
       }
     } finally { migrating.current = false; }
   }
