@@ -1657,3 +1657,26 @@ input[type="range"]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 4px 
   .spot-rail { padding-inline: 18px; scroll-padding-inline: 18px; }
   .spot-card { width: 248px; }
 }
+
+/* ===================== Stand-by du site (admin) ===================== */
+.standby { position: fixed; inset: 0; z-index: 60; overflow-y: auto; display: flex; flex-direction: column; background: #203C31; color: #F5F5F1; padding: max(24px, env(safe-area-inset-top)) 24px max(24px, env(safe-area-inset-bottom)); }
+.standby::before { content: ""; position: absolute; inset: 0; pointer-events: none; background: radial-gradient(60vmax 60vmax at 110% -10%, rgba(231,121,56,.20), transparent 60%), radial-gradient(50vmax 50vmax at -20% 120%, rgba(255,255,255,.06), transparent 60%); }
+.standby main { position: relative; flex: 1; display: flex; flex-direction: column; justify-content: center; max-width: 720px; width: 100%; margin: 0 auto; }
+.standby-badge { display: inline-flex; align-items: center; gap: 10px; align-self: flex-start; margin-bottom: 28px; padding: 7px 14px; border-radius: 999px; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.14); font-size: 13.5px; font-weight: 600; }
+.standby-dot { width: 8px; height: 8px; border-radius: 50%; background: #E77938; }
+.standby-logo { font-family: "Bricolage Grotesque", "Inter", sans-serif; font-weight: 800; letter-spacing: -0.045em; line-height: .9; font-size: clamp(56px, 14vw, 128px); margin: 0; }
+.standby-logo span { color: #E77938; }
+.standby-slogan { font-family: "Bricolage Grotesque", "Inter", sans-serif; font-weight: 600; font-size: clamp(20px, 4.2vw, 30px); letter-spacing: -0.02em; line-height: 1.2; margin: 22px 0 0; }
+.standby-text { color: #C5D1C9; font-size: 16.5px; line-height: 1.6; max-width: 34em; margin: 18px 0 0; }
+.standby-cta { display: inline-flex; align-items: center; gap: 10px; align-self: flex-start; margin-top: 34px; padding: 14px 22px; border-radius: 14px; background: #E77938; color: #fff; font-weight: 600; font-size: 15.5px; text-decoration: none; }
+.standby footer { position: relative; max-width: 720px; width: 100%; margin: 0 auto; padding-top: 32px; font-size: 13px; color: rgba(245,245,241,.55); display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.standby-admin { color: rgba(245,245,241,.55); font-size: 13px; text-decoration: underline; text-underline-offset: 3px; background: none; border: 0; cursor: pointer; padding: 0; }
+.standby-bar { display: flex; align-items: center; gap: 8px; padding: 9px 16px; background: #7A3B12; color: #fff; font-size: 13.5px; }
+.standby-bar span { flex: 1; min-width: 0; }
+.standby-bar button { color: #fff; font-weight: 700; text-decoration: underline; }
+.standby-card { display: flex; align-items: center; gap: 14px; padding: 16px 18px; border-radius: var(--r-lg); border: 1px solid var(--line); background: var(--surface); margin-bottom: 18px; flex-wrap: wrap; }
+.standby-card.is-on { border-color: color-mix(in srgb, var(--accent) 50%, var(--line)); background: color-mix(in srgb, var(--accent) 8%, var(--surface)); }
+.standby-card-ico { flex: none; width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; background: var(--soft); color: var(--pos); }
+.standby-card.is-on .standby-card-ico { color: var(--accent); }
+.standby-card-txt { flex: 1; min-width: 220px; display: flex; flex-direction: column; gap: 3px; }
+.standby-card-txt span { color: var(--muted); font-size: 14px; }

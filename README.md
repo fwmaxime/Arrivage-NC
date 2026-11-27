@@ -4,7 +4,9 @@ Site : https://arrivagenc.com (GitHub Pages, branche `main`, racine).
 
 **Le site est ouvert au public depuis le 27/11/2026** : `index.html` est l'application (indexable). L'ancienne page « ARRIVAGE revient bientôt » est gardée dans `maintenance.html`.
 
-Remettre en maintenance : `cp maintenance.html index.html && git commit -am "Maintenance" && git push`.
+**Stand-by** : un administrateur peut mettre le site en pause depuis l'espace Admin (Vue d'ensemble > « Mettre en stand-by »). Les visiteurs voient « Bientôt de retour », les admins voient toujours le site, et le site de test `demo-x7q4/` n'est pas concerné.
+
+Remettre en maintenance à la main (secours) : `cp maintenance.html index.html && git commit -am "Maintenance" && git push`.
 Mettre à jour le site officiel après un build : `bash sources/build.sh "$PWD/demo-x7q4/index.html" && grep -v 'name="robots"' demo-x7q4/index.html > index.html`.
 
 - `demo-x7q4/index.html` : le prototype interactif complet (données fictives, paiement simulé), mis de côté et non référencé (noindex).

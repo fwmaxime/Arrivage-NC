@@ -21,6 +21,7 @@ import { AdminMerchantDetail } from "./merchant-detail";
 import { MerchantReviews, AdminReviews } from "./reviews";
 import { MyReservations, MerchantReservations, AdminReservationsPanel } from "./reservations";
 import { ThemeProvider, ThemeSettings, useApplyTheme } from "./theme";
+import { useStandby, StandbyPage, StandbySplash, StandbyAdminBar } from "./standby";
 
 const UI_KEY = "arrivage-ui-v2";
 // Nettoie les données du prototype (anciennes clés)
@@ -256,9 +257,13 @@ function App() {
     setUi((u: any) => ({ ...u, routes: { ...u.routes, [mode]: prev } }));
   };
   useApplyTheme(mode);
+  const standby = useStandby();
   const setMode = (m: Mode, r?: Route) => { setUi((u: any) => ({ mode: m, routes: { ...u.routes, ...(r ? { [m]: r } : {}) } })); window.scrollTo({ top: 0 }); };
+  if (standby.loading) return <StandbySplash />;
+  if (standby.gate) return <NavCtx.Provider value={{ mode, route, go, back, setMode }}><StandbyPage /><Toasts /><AuthModal /></NavCtx.Provider>;
   return (
     <NavCtx.Provider value={{ mode, route, go, back, setMode }}>
+      <StandbyAdminBar go={() => { setMode("admin", { name: "overview" }); }} />
       <div className={cx("app", `mode-${mode}`, !(s.me && (s.me.role === "admin" || myMerchants(s).length > 0)) && "no-bar")}>
         <SpaceBar mode={mode} setMode={setMode} go={go} route={route} />
         {mode === "consumer" && <DemoProvider><ConsumerShell route={route} go={go} /></DemoProvider>}

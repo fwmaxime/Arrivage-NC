@@ -34,7 +34,7 @@ export interface State {
   savedScenarios: { id: string; name: string; inputs: FinInputs }[];
   profile: { commune: string; interests: string[]; blocked?: boolean };
   currentMerchant: string;
-  settings: { manualApproval: boolean; moderateReviews?: boolean };
+  settings: { manualApproval: boolean; moderateReviews?: boolean; standby?: boolean };
   reservations: Reservation[];
   reviews: Review[];
   staff: Staff[];
