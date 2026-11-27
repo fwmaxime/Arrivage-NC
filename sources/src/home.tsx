@@ -11,6 +11,7 @@ import { useCatalog, ProductCard, MerchantCard, popularity, PriceTag } from "./c
 import { dealState, dealBadge, dealWhen, isRestoProduct } from "./deals";
 import { Scope, SCOPES, suggest, brandsOf, inStock, recentSearches, pushRecent, clearRecent, highlight } from "./finder";
 import { useDemo } from "./demo";
+import { HowBand } from "./how";
 import { Btn, ProductVisual, MerchantLogo, SectionHead, cx } from "./ui";
 
 function Hl({ text, q }: { text: string; q: string }) {
@@ -234,6 +235,8 @@ export function Home() {
         </div>
       </section>
 
+      {!emptyCatalog && <HowBand />}
+
       {emptyCatalog && (
         <section className="sec launch">
           <div className="launch-txt">
@@ -244,6 +247,7 @@ export function Home() {
               <Btn variant="accent" icon={BellRing} onClick={() => go("alerts", { create: {} })}>Créer une alerte</Btn>
               <Btn variant="outline" icon={Store} onClick={() => go("signup")}>Inscrire mon commerce</Btn>
               {!demo.on && <Btn variant="outline" icon={FlaskConical} onClick={() => demo.setOn(true)}>Voir un aperçu avec des exemples</Btn>}
+              <button className="link" onClick={() => go("how")}>Comment ça marche ?</button>
             </div>
           </div>
           <ol className="launch-steps">
