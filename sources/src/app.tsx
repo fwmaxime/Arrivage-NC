@@ -20,7 +20,9 @@ import { MerchantReviews, AdminReviews } from "./reviews";
 import { MyReservations, MerchantReservations, AdminReservationsPanel } from "./reservations";
 import { ThemeProvider, ThemeSettings, useApplyTheme } from "./theme";
 
-const UI_KEY = "arrivage-v1-ui";
+const UI_KEY = "arrivage-ui-v2";
+// Nettoie les données du prototype (anciennes clés)
+try { localStorage.removeItem("arrivage-v1-ui"); localStorage.removeItem("arrivage-v1-state"); } catch {}
 const DEFAULT_ROUTE: Record<Mode, Route> = { consumer: { name: "home" }, merchant: { name: "dashboard" }, admin: { name: "overview" } };
 function loadUI() {
   try { const x = JSON.parse(localStorage.getItem(UI_KEY) || "null"); if (x && x.mode && x.routes) return x; } catch {}
