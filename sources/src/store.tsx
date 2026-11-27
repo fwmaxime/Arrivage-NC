@@ -411,7 +411,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     // Photos : une image encore en texte (data:…) est d'abord envoyée dans le stockage Supabase, la fiche ne garde que son adresse.
     if (c === "products" || c === "merchants") {
       try { rows = await Promise.all(rows.map((r) => withStoredPhotos(c, r))); }
-      catch (e: any) { warn("photos: " + (e?.message || e)); toast("Une photo n'a pas pu être envoyée. Vérifiez votre connexion et réessayez.", "warn"); return; }
+      // stockage pas encore prêt (script photos.sql non lancé) : on garde l'ancienne méthode, la photo reste dans la fiche
+      catch (e: any) { warn("photos: " + (e?.message || e)); storageOff = true; rows = orig; }
     }
     const payload = rows.map((r) => ({ id: r.id, data: r }));
     const q = c === "activity" ? sb!.from(c).insert(payload) : sb!.from(c).upsert(payload).select("id,data");
@@ -430,7 +431,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const migrating = useRef(false);
   async function migratePhotos() {
     const st = cur.current;
-    if (migrating.current || !sb || !st.me) return;
+    if (migrating.current || storageOff || !sb || !st.me) return;
     migrating.current = true;
     try {
       for (const c of ["products", "merchants"] as const) {
@@ -581,6 +582,7 @@ export const newId = uid;
 // ---- Photos dans le stockage Supabase (bucket « photos ») ----
 const isInline = (v: any) => typeof v === "string" && v.startsWith("data:image/");
 export const hasInlinePhoto = (r: any) => (Array.isArray(r.images) && r.images.some(isInline)) || isInline(r.logo);
+let storageOff = false;
 async function uploadPhoto(folder: string, dataUrl: string): Promise<string> {
   const blob = await (await fetch(dataUrl)).blob();
   const ext = blob.type === "image/png" ? "png" : blob.type === "image/webp" ? "webp" : "jpg";
@@ -590,7 +592,7 @@ async function uploadPhoto(folder: string, dataUrl: string): Promise<string> {
   return sb!.storage.from("photos").getPublicUrl(path).data.publicUrl;
 }
 async function withStoredPhotos(c: "products" | "merchants", r: any) {
-  if (!hasInlinePhoto(r)) return r;
+  if (storageOff || !hasInlinePhoto(r)) return r;
   const folder = c === "products" ? r.merchantId : r.id;
   const out = { ...r };
   if (Array.isArray(r.images)) out.images = await Promise.all(r.images.map((x: string) => (isInline(x) ? uploadPhoto(folder, x) : x)));
