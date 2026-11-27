@@ -23,3 +23,11 @@ git mv -f demo-x7q4/index.html index.html && git commit -m "Remise en ligne du p
 ## Mode démonstration
 
 `https://arrivagenc.com/demo-x7q4/?demo=1` (ou le lien « Voir un aperçu avec des exemples ») affiche des commerces et produits d'exemple fictifs, gardés uniquement dans le navigateur : rien n'est envoyé à Supabase. Le bouton « Quitter » du bandeau revient aux vraies données.
+
+## Restaurants, promotions flash et mises en avant
+
+- Catégorie **Restaurants** (`restauration`) : un restaurant publie des offres datées (plat du jour, suggestion du week-end, menu, offre limitée, promo).
+- Tout commerce peut créer une **promotion flash** (Black Friday, week-end…) : case « Promotion flash ou offre limitée » du formulaire de publication, ou bouton « Mettre en promo » dans Mes publications. Prix barré ou remise libre, dates de début et de fin.
+- Côté client : annoncée « Bientôt » jusqu'à 14 jours avant, visible pendant la période, puis masquée automatiquement. Recherche « promo », filtre « Promos et offres », sections d'accueil « Promos et offres du moment » et « Côté restaurants ».
+- Les publications **sponsorisées** (forfait Premium) et « À la une » (admin) apparaissent dans le bandeau « À la une » juste sous la barre de recherche de l'accueil, et jusqu'à 2 en tête des résultats de recherche.
+- Aucune modification de la base Supabase : l'offre est enregistrée dans la publication (champ `deal`).

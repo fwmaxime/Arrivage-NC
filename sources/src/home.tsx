@@ -2,12 +2,13 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Search, MapPin, X, ArrowUpRight, Sparkles, Store, Tag, Clock, BellRing, ChevronRight, ChevronDown, PackageCheck, Zap, CalendarClock, Shirt,
-  TrendingUp, FlaskConical, Package, CornerDownLeft,
+  TrendingUp, FlaskConical, Package, CornerDownLeft, Flame, UtensilsCrossed, Megaphone,
 } from "lucide-react";
 import { CATEGORIES, COMMUNES, catById, fmtXPF, norm, Product } from "./data";
 import { useStore } from "./store";
 import { useNav } from "./nav";
-import { useCatalog, ProductCard, MerchantCard, popularity } from "./consumer";
+import { useCatalog, ProductCard, MerchantCard, popularity, PriceTag } from "./consumer";
+import { dealState, dealBadge, dealWhen, isRestoProduct } from "./deals";
 import { Scope, SCOPES, suggest, brandsOf, inStock, recentSearches, pushRecent, clearRecent, highlight } from "./finder";
 import { useDemo } from "./demo";
 import { Btn, ProductVisual, MerchantLogo, SectionHead, cx } from "./ui";
@@ -140,6 +141,32 @@ export const SearchBox = (p: any) => <SmartSearch {...p} />;
 
 function Rail({ children }: any) { return <div className="rail-wrap"><div className="rail">{children}</div></div>; }
 
+// Bandeau « À la une », juste sous la barre de recherche
+function Spotlight({ list }: { list: Product[] }) {
+  const { s } = useStore();
+  const { go } = useNav();
+  return (
+    <div className="spot" aria-label="À la une">
+      <div className="spot-head"><Megaphone size={13} /> À la une <span>Publications mises en avant</span></div>
+      <div className="spot-rail">
+        {list.map((p) => {
+          const m = s.merchants.find((x) => x.id === p.merchantId);
+          return (
+            <button key={p.id} className="spot-card" onClick={() => go("product", { id: p.id })}>
+              <span className="spot-thumb"><ProductVisual p={p} />{p.deal && dealBadge(p) && <em>{dealBadge(p)}</em>}</span>
+              <span className="spot-txt">
+                <b>{p.name}</b>
+                <small>{m?.name} · {m?.commune}</small>
+                <span className="spot-foot"><PriceTag p={p} />{p.sponsored ? <i>Sponsorisé</i> : p.deal ? <i className="is-deal">{dealWhen(p)}</i> : null}</span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ---------- Accueil ----------
 export function Home() {
   const { s } = useStore();
@@ -164,8 +191,22 @@ export function Home() {
     return Array.from(new Set([...recentSearches(), ...top, ...fromCat, ...IDEAS].map((x) => x.trim()).filter(Boolean))).slice(0, 8);
   }, [s.searchLog, brands]);
   const emptyCatalog = cat.length === 0;
+  // Mises en avant : publications sponsorisées (forfait Premium) et « À la une » (admin), ordre mélangé à chaque visite
+  const [seed] = useState(() => Math.random());
+  const spotlight = useMemo(() => {
+    const h = (id: string) => { let x = seed * 1e9; for (const ch of id) x = (x * 31 + ch.charCodeAt(0)) % 1e9; return x; };
+    return cat.filter((p) => (p.sponsored || p.featured) && p.status !== "out" && dealState(p) !== "upcoming")
+      .sort((a, b) => Number(b.sponsored) - Number(a.sponsored) || Number(local(b)) - Number(local(a)) || h(a.id) - h(b.id)).slice(0, 10);
+  }, [cat, commune, seed]);
+  const deals = useMemo(() => cat.filter((p) => p.deal && !isRestoProduct(p) && p.status !== "out")
+    .sort((a, b) => Number(dealState(a) === "upcoming") - Number(dealState(b) === "upcoming") || Number(local(b)) - Number(local(a)) || +new Date(a.deal!.endAt) - +new Date(b.deal!.endAt)).slice(0, 12), [cat, commune]);
+  const resto = useMemo(() => cat.filter((p) => isRestoProduct(p) && p.status !== "out")
+    .sort((a, b) => Number(dealState(a) === "upcoming") - Number(dealState(b) === "upcoming") || Number(local(b)) - Number(local(a)) || +new Date(b.publishedAt) - +new Date(a.publishedAt)).slice(0, 12), [cat, commune]);
+  const liveDeals = cat.filter((p) => p.deal && dealState(p) === "live").length;
 
   const quick = [
+    ...(liveDeals ? [{ l: "Promos", i: Flame, n: liveDeals, run: () => go("explore", { promo: 1 }) }] : []),
+    ...(resto.length ? [{ l: "Restaurants", i: UtensilsCrossed, n: resto.length, run: () => go("explore", { cat: "restauration" }) }] : []),
     { l: "En stock", i: PackageCheck, n: stockN, run: () => go("explore", { stock: 1, ...(commune ? { commune } : {}) }) },
     { l: "Arrivés aujourd'hui", i: Zap, n: todayN, run: () => go("explore", { date: "24h" }) },
     { l: "Prochains arrivages", i: CalendarClock, n: soon.length, run: () => go("explore", { status: "soon" }) },
@@ -182,6 +223,7 @@ export function Home() {
           <h1>Trouvez-le près de chez vous.</h1>
           <p className="finder-sub">Cherchez un produit, une marque ou un commerce : ARRIVAGE vous dit qui l'a, où et à quel prix.</p>
           <SmartSearch big />
+          {spotlight.length > 0 && <Spotlight list={spotlight} />}
           <div className="finder-quick">
             {quick.map((x) => <button key={x.l} className="qchip" onClick={x.run}><x.i size={15} />{x.l}{x.n ? <span>{x.n}</span> : null}</button>)}
           </div>
@@ -209,6 +251,20 @@ export function Home() {
             <li><b>2</b><span><strong>Comparez</strong> prix, stock et commune en un coup d'œil.</span></li>
             <li><b>3</b><span><strong>Réservez</strong> et payez directement en magasin.</span></li>
           </ol>
+        </section>
+      )}
+
+      {deals.length > 0 && (
+        <section className="sec">
+          <SectionHead title="Promos et offres du moment" sub="Promotions flash des commerces, aux dates indiquées" action={<button className="link" onClick={() => go("explore", { promo: 1 })}>Toutes les promos <ChevronRight size={15} /></button>} />
+          <Rail>{deals.map((p) => <ProductCard key={p.id} p={p} />)}</Rail>
+        </section>
+      )}
+
+      {resto.length > 0 && (
+        <section className="sec">
+          <SectionHead title="Côté restaurants" sub="Plats du jour, suggestions du week-end et menus" action={<button className="link" onClick={() => go("explore", { cat: "restauration" })}>Tous les restaurants <ChevronRight size={15} /></button>} />
+          <Rail>{resto.map((p) => <ProductCard key={p.id} p={p} />)}</Rail>
         </section>
       )}
 
