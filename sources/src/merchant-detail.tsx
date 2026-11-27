@@ -90,7 +90,6 @@ export function AdminMerchantDetail({ id }: { id: string }) {
             {m.status === "active" ? <span className="pill pill-sm pill-green"><i />Actif</span> : m.status === "suspended" ? <span className="pill pill-sm pill-red"><i />Suspendu</span> : <span className="pill pill-sm pill-amber"><i />{m.status === "pending" ? "En attente" : "Refusé"}</span>}
             <span className={cx("plan-badge", `plan-${plan.id}`)}>{plan.name}</span>
             <span className="muted small">{m.tagline} · {m.commune} · inscrit le {fmtD(m.joinedAt)}</span>
-            <DemoTag>Données fictives</DemoTag>
           </div>
         </div>
         <div className="md-actions">
@@ -162,7 +161,7 @@ export function AdminMerchantDetail({ id }: { id: string }) {
                 <div><span>Net reversé au commerce</span><b>{fmtXPF(gross)}</b></div>
                 <div><span>Abonnements facturés par ARRIVAGE</span><b>{fmtXPF(subTotal)}</b></div>
               </div>
-              <p className="note md-note">Paiements simulés. Aucune commission n'est prélevée sur les ventes dans cette démo. Les abonnements sont recalculés à partir du forfait actuel.</p>
+              <p className="note md-note">Aucun paiement ne transite par ARRIVAGE : les réservations sont réglées en magasin. Les montants d'abonnement sont théoriques, calculés à partir du forfait actuel.</p>
               {!ledger.length ? <Empty icon={CreditCard} title="Aucun paiement" /> : (
                 <div className="table-scroll">
                   <table className="admin-table md-table">

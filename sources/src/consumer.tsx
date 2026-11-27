@@ -9,6 +9,7 @@ import { matchScore, correct, termScore, indexOf, words as qWords } from "./sear
 import { useNav } from "./nav";
 import { ReserveButton } from "./reservations";
 import { RatingBadge, ReviewsBlock } from "./reviews";
+import { AccountSection } from "./auth";
 import { Btn, IconBtn, StatusPill, Chip, ProductVisual, MerchantLogo, MerchantCover, Modal, Empty, SectionHead, Segmented, Field, DemoTag, cx } from "./ui";
 
 // ---------- Sélecteurs ----------
@@ -159,7 +160,7 @@ export function NotificationsPanel({ open, onClose }: any) {
         <Segmented size="sm" value={tab} onChange={setTab} options={[{ v: "all", l: "Toutes" }, { v: "unread", l: `Non lues (${s.notifications.filter((n) => !n.read).length})` }]} />
         <button className="link" onClick={() => mutate((d) => d.notifications.forEach((n) => (n.read = true)))}>Tout marquer comme lu</button>
       </div>
-      <p className="note"><Info size={14} /> Notifications simulées dans l'application, aucune notification push réelle n'est envoyée.</p>
+      <p className="note"><Info size={14} /> Vos alertes et commerces suivis sont vérifiés à chaque visite sur ARRIVAGE.</p>
       {!list.length && <Empty icon={Bell} title="Aucune notification" body="Créez une alerte pour être prévenu dès qu'un produit arrive." />}
       <div className="notifs">
         {list.map((n) => (
@@ -187,7 +188,7 @@ export function LocationPicker({ open, onClose }: any) {
   const pick = (c: string) => { mutate((d) => { d.profile.commune = c; }); toast(c ? `Localisation : ${c}` : "Localisation : tout le territoire", "info"); onClose(); };
   return (
     <Modal open={open} onClose={onClose} title="Votre localisation">
-      <p className="muted" style={{ marginTop: 0 }}>Sert à mettre en avant les arrivages proches. Aucune géolocalisation n'est utilisée dans cette démo.</p>
+      <p className="muted" style={{ marginTop: 0 }}>Sert à mettre en avant les arrivages proches.</p>
       <div className="chips-wrap">
         <Chip active={!s.profile.commune} onClick={() => pick("")}>Tout le territoire</Chip>
         {COMMUNES.map((c) => <Chip key={c} active={s.profile.commune === c} onClick={() => pick(c)}>{c}</Chip>)}
@@ -247,9 +248,23 @@ export function Home() {
         </section>
       )}
 
+      {!hero && (
+        <section className="hero hero-welcome">
+          <div className="hero-text">
+            <div className="hero-eyebrow"><span className="eyebrow">Nouvelle-Calédonie</span></div>
+            <h1>Tout ce qui débarque, au même endroit.</h1>
+            <p className="hero-sub">Les commerces calédoniens annoncent ici leurs arrivages. Suivez vos boutiques préférées, créez une alerte et soyez prévenu dès que le produit que vous attendez arrive.</p>
+            <div className="hero-cta">
+              <Btn variant="accent" size="lg" icon={BellRing} onClick={() => go("alerts", {})}>Créer une alerte</Btn>
+              <Btn variant="ghost-light" size="lg" icon={Store} onClick={() => go("signup")}>Inscrire mon commerce</Btn>
+            </div>
+          </div>
+        </section>
+      )}
+
       <div className="tagline-strip">
         <span><strong>{weekCount}</strong> arrivages publiés cette semaine</span>
-        <span><strong>{s.merchants.filter((m) => m.status === "active").length}</strong> commerces fictifs de démonstration</span>
+        <span><strong>{s.merchants.filter((m) => m.status === "active").length}</strong> commerce{s.merchants.filter((m) => m.status === "active").length > 1 ? "s" : ""} sur ARRIVAGE</span>
         <span className="hide-sm">Le Caillou, toujours à jour.</span>
       </div>
 
@@ -276,14 +291,14 @@ export function Home() {
 
       {recos.length > 0 && (
         <section className="sec">
-          <SectionHead title="Sélectionné pour vous" sub={`D'après vos centres d'intérêt${s.profile.commune ? " et votre commune (" + s.profile.commune + ")" : ""} · recommandations simulées`} action={<button className="link" onClick={() => go("profile")}>Modifier mes intérêts <ChevronRight size={15} /></button>} />
+          <SectionHead title="Sélectionné pour vous" sub={`D'après vos centres d'intérêt${s.profile.commune ? " et votre commune (" + s.profile.commune + ")" : ""}`} action={<button className="link" onClick={() => go("profile")}>Modifier mes intérêts <ChevronRight size={15} /></button>} />
           <Rail>{recos.map((p) => <ProductCard key={p.id} p={p} />)}</Rail>
         </section>
       )}
 
       <section className="sec">
         <SectionHead title="Les plus suivis" sub="Vues, favoris et demandes de contact" action={<button className="link" onClick={() => go("explore", { sort: "popular" })}>Voir tout <ChevronRight size={15} /></button>} />
-        <div className="grid">{popular.slice(0, 8).map((p) => <ProductCard key={p.id} p={p} />)}</div>
+        {popular.length ? <div className="grid">{popular.slice(0, 8).map((p) => <ProductCard key={p.id} p={p} />)}</div> : <Empty icon={Package} title="Les premiers arrivages arrivent bientôt" body="Les commerces partenaires publient leurs nouveautés ici. Créez une alerte pour être prévenu." />}
       </section>
 
       <section className="sec">
@@ -510,7 +525,7 @@ export function Explore({ params }: any) {
 
 // ---------- Fiche produit ----------
 export function ProductPage({ params }: any) {
-  const { s, mutate, toast, log } = useStore();
+  const { s, mutate, toast, log, requireAccount } = useStore();
   const { go, back } = useNav();
   const p = s.products.find((x) => x.id === params?.id);
   const m = p && s.merchants.find((x) => x.id === p.merchantId);
@@ -551,7 +566,7 @@ export function ProductPage({ params }: any) {
               <button key={i} className={cx(img === i && "is-on")} onClick={() => setImg(i)} aria-label={`Visuel ${i + 1}`}><ProductVisual p={p} variant={i} /></button>
             ))}
           </div>
-          {!p.images.length && <p className="note"><Info size={14} /> Aucune photo fournie par le commerçant pour ce produit fictif : visuel indicatif.</p>}
+          {!p.images.length && <p className="note"><Info size={14} /> Aucune photo fournie par le commerçant : visuel indicatif.</p>}
         </div>
 
         <div className="pinfo">
@@ -601,10 +616,10 @@ export function ProductPage({ params }: any) {
             <div className="row">
               <FavButtonLabeled id={p.id} />
               <Btn variant="ghost" icon={Share2} onClick={() => copy(`${p.name} — ${fmtXPF(p.price)} chez ${m.name} (${m.commune}) · vu sur ARRIVAGE`, "Texte de partage copié")}>Partager</Btn>
-              <Btn variant="ghost" icon={Flag} onClick={() => s.profile.blocked ? toast("Votre compte a été bloqué par la modération : vous ne pouvez plus envoyer de signalement", "warn") : setReport(true)}>Signaler</Btn>
+              <Btn variant="ghost" icon={Flag} onClick={() => !requireAccount("Connectez-vous pour signaler une publication à la modération.") ? null : s.profile.blocked ? toast("Votre compte a été bloqué par la modération : vous ne pouvez plus envoyer de signalement", "warn") : setReport(true)}>Signaler</Btn>
             </div>
           </div>
-          <p className="disclaimer">Prix et disponibilité déclarés par le commerçant. Le paiement en ligne réserve le produit, à retirer en magasin. Dans cette démo, le paiement est simulé.</p>
+          <p className="disclaimer">Prix et disponibilité déclarés par le commerçant. La réservation met le produit de côté : vous le réglez directement en magasin.</p>
         </div>
       </div>
 
@@ -623,12 +638,12 @@ export function ProductPage({ params }: any) {
             <div><span className="lbl"><Clock size={14} /> Horaires</span>{m.hours.map((h) => <div key={h}>{h}</div>)}</div>
             <div><span className="lbl"><MapPin size={14} /> Adresse</span><div>{m.address}</div><div>{m.commune}, Nouvelle-Calédonie</div></div>
             <div className="store-btns">
-              {m.addressVerified ? (
+              {true ? (
                 <a className="btn btn-outline btn-sm" href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(m.address + ", " + m.commune + ", Nouvelle-Calédonie")}`} target="_blank" rel="noreferrer"><Navigation size={15} /> Itinéraire</a>
               ) : (
                 <span className="btn btn-outline btn-sm is-disabled" title="Adresse fictive : itinéraire désactivé dans la démo"><Navigation size={15} /> Itinéraire indisponible</span>
               )}
-              <span className="micro">{m.addressVerified ? "Adresse vérifiée par le commerçant" : "Adresse fictive, itinéraire désactivé"}</span>
+              <span className="micro">{m.addressVerified ? "Adresse vérifiée" : "Adresse déclarée par le commerçant"}</span>
             </div>
           </div>
         </div>
@@ -644,7 +659,7 @@ export function ProductPage({ params }: any) {
       )}
 
       <Modal open={contact} onClose={() => setContact(false)} title={`Contacter ${m.name}`}>
-        <p className="muted" style={{ marginTop: 0 }}>Coordonnées fictives de démonstration. Contactez le commerce directement, ARRIVAGE n'intervient pas dans la vente.</p>
+        <p className="muted" style={{ marginTop: 0 }}>Contactez le commerce directement, ARRIVAGE n'intervient pas dans la vente.</p>
         <div className="contact-rows">
           <div className="contact-row"><Phone size={18} /><span className="sel">{m.phone}</span><Btn variant="ghost" size="sm" icon={Copy} onClick={() => copy(m.phone, "Numéro copié")}>Copier</Btn></div>
           <div className="contact-row"><Mail size={18} /><span className="sel">{m.email}</span><Btn variant="ghost" size="sm" icon={Copy} onClick={() => copy(m.email, "Adresse copiée")}>Copier</Btn></div>
@@ -660,7 +675,7 @@ export function ProductPage({ params }: any) {
         <div className="row-end">
           <Btn variant="ghost" onClick={() => setReport(false)}>Annuler</Btn>
           <Btn disabled={!reason} onClick={() => {
-            mutate((d) => { d.reports.unshift({ id: newId(), productId: p.id, reason, at: new Date().toISOString(), status: "open", reporterId: "visitor", adminUnread: true, history: [{ at: new Date().toISOString(), by: "client", kind: "created", text: "Signalement : " + reason }] }); log(d, `Nouveau signalement sur « ${p.name} » : ${reason}`, "consommateur"); });
+            mutate((d) => { d.reports.unshift({ id: newId(), productId: p.id, reason, at: new Date().toISOString(), status: "open", reporterId: s.me!.id, adminUnread: true, history: [{ at: new Date().toISOString(), by: "client", kind: "created", text: "Signalement : " + reason }] }); log(d, `Nouveau signalement sur « ${p.name} » : ${reason}`, "consommateur"); });
             toast("Signalement envoyé à la modération"); setReport(false); setReason("");
           }}>Envoyer</Btn>
         </div>
@@ -856,7 +871,7 @@ export function MerchantCard({ m }: { m: Merchant }) {
   const n = s.products.filter((p) => p.merchantId === m.id && p.state === "published").length;
   return (
     <article className="mcard" onClick={() => go("merchant", { id: m.id })} tabIndex={0} onKeyDown={(e) => e.key === "Enter" && go("merchant", { id: m.id })}>
-      <MerchantCover m={m} className="mcard-cover"><span className="mcard-fict">Commerce fictif</span></MerchantCover>
+      <MerchantCover m={m} className="mcard-cover" />
       <div className="mcard-body">
         <div className="mcard-logo"><MerchantLogo m={m} size={48} /></div>
         <div className="mcard-name">{m.name}{m.verified && <BadgeCheck size={14} className="verified" />}</div>
@@ -877,7 +892,7 @@ export function MerchantsPage({ params }: any) {
   const list = s.merchants.filter((m) => m.status === "active" && (!q || norm(m.name + m.tagline + m.description).includes(norm(q))) && (!commune || m.commune === commune) && (!cat || m.categories.includes(cat as any)));
   return (
     <div className="page">
-      <div className="page-head"><div><h1 className="page-title">Commerces</h1><p className="muted">Annuaire de démonstration : tous les commerces présentés sont fictifs et ne sont pas partenaires du projet.</p></div><Btn variant="outline" icon={Store} onClick={() => go("signup")}>Inscrire mon commerce</Btn></div>
+      <div className="page-head"><div><h1 className="page-title">Commerces</h1><p className="muted">Les commerces calédoniens qui annoncent leurs arrivages sur ARRIVAGE.</p></div><Btn variant="outline" icon={Store} onClick={() => go("signup")}>Inscrire mon commerce</Btn></div>
       {<>
       <div className="dir-filters">
         <div className="search search-inline"><Search size={18} className="search-ico" /><input id="dir-q" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Rechercher un commerce" aria-label="Rechercher un commerce" /></div>
@@ -905,7 +920,7 @@ export function MerchantPage({ params }: any) {
       <button className="back" onClick={back}><ChevronLeft size={18} /> Retour</button>
       {m.status !== "active" && <div className="banner-warn"><Info size={16} /> Ce commerce est suspendu par la modération et n'apparaît plus publiquement.</div>}
       <div className="mhero">
-        <MerchantCover m={m} className="mhero-cover"><span className="mcard-fict">Commerce fictif · démonstration</span></MerchantCover>
+        <MerchantCover m={m} className="mhero-cover" />
         <div className="mhero-body">
           <div className="mhero-logo"><MerchantLogo m={m} size={84} /></div>
           <div className="mhero-id">
@@ -949,40 +964,37 @@ export function MerchantPage({ params }: any) {
 
 // ---------- Profil ----------
 export function ProfilePage() {
-  const { s, mutate, toast, reset, storageOk } = useStore();
+  const { s, mutate } = useStore();
   const { go } = useNav();
-  const [confirm, setConfirm] = useState(false);
+  const active = s.me ? s.reservations.filter((r) => r.buyerId === s.me!.id && (r.status === "paid" || r.status === "ready")).length : 0;
   return (
     <div className="page narrow">
       <h1 className="page-title">Profil</h1>
-      <div className="side-card">
-        <div className="row"><span className="avatar"><User size={22} /></span><div><strong>Visiteur de démonstration</strong><div className="muted small">Aucun compte, aucune donnée personnelle collectée</div></div></div>
-      </div>
+      <AccountSection />
       <section className="sec">
         <SectionHead title="Ma commune" />
         <div className="chips-wrap"><Chip active={!s.profile.commune} onClick={() => mutate((d) => { d.profile.commune = ""; })}>Tout le territoire</Chip>{COMMUNES.map((c) => <Chip key={c} active={s.profile.commune === c} onClick={() => mutate((d) => { d.profile.commune = c; })}>{c}</Chip>)}</div>
       </section>
       <section className="sec">
-        <SectionHead title="Centres d'intérêt" sub="Utilisés pour les recommandations simulées de l'accueil" />
+        <SectionHead title="Centres d'intérêt" sub="Utilisés pour vous proposer des arrivages sur l'accueil" />
         <div className="chips-wrap">{CATEGORIES.map((c) => { const on = s.profile.interests.includes(c.id); return <Chip key={c.id} icon={c.icon} active={on} onClick={() => mutate((d) => { d.profile.interests = on ? d.profile.interests.filter((x) => x !== c.id) : [...d.profile.interests, c.id]; })}>{c.label}</Chip>; })}</div>
       </section>
-      <section className="sec">
-        <SectionHead title="Mes réservations" sub="Produits payés et mis de côté en magasin" />
-        <Btn variant="outline" icon={ShoppingBag} onClick={() => go("orders")}>Voir mes réservations ({s.reservations.filter((r) => r.buyerId === "visitor" && (r.status === "paid" || r.status === "ready")).length} en cours)</Btn>
-      </section>
+      {s.me && (
+        <section className="sec">
+          <SectionHead title="Mes réservations" sub="Produits mis de côté en magasin" />
+          <Btn variant="outline" icon={ShoppingBag} onClick={() => go("orders")}>Voir mes réservations ({active} en cours)</Btn>
+        </section>
+      )}
+      {!s.merchants.some((m) => m.ownerId && m.ownerId === s.me?.id) && (
+        <section className="sec">
+          <SectionHead title="Vous êtes commerçant ?" sub="Annoncez vos arrivages aux Calédoniens" />
+          <Btn variant="outline" icon={Store} onClick={() => go("signup")}>Inscrire mon commerce</Btn>
+        </section>
+      )}
       <section className="sec">
         <SectionHead title="Apparence" sub="Couleurs, thèmes, mode sombre, typographie" />
         <Btn variant="outline" icon={Palette} onClick={() => go("theme")}>Personnaliser le thème</Btn>
       </section>
-      <section className="sec">
-        <SectionHead title="Données de la démonstration" />
-        <p className="muted">{storageOk ? "Vos favoris, alertes, publications et réglages sont enregistrés dans le stockage local de ce navigateur." : "Le stockage local n'est pas disponible ici : les modifications seront perdues à l'actualisation."}</p>
-        <Btn variant="danger" icon={RotateCcw} onClick={() => setConfirm(true)}>Réinitialiser toutes les données</Btn>
-      </section>
-      <Modal open={confirm} onClose={() => setConfirm(false)} title="Réinitialiser la démonstration ?">
-        <p className="muted" style={{ marginTop: 0 }}>Favoris, alertes, publications ajoutées, forfaits et réglages du simulateur reviendront à leur état initial, dans les trois espaces.</p>
-        <div className="row-end"><Btn variant="ghost" onClick={() => setConfirm(false)}>Annuler</Btn><Btn variant="danger" onClick={() => { reset(); setConfirm(false); }}>Réinitialiser</Btn></div>
-      </Modal>
     </div>
   );
 }

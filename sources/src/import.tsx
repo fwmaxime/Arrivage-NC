@@ -97,7 +97,7 @@ export function ImportPage() {
   const [done, setDone] = useState<{ created: number; updated: number; skipped: number; hits: number; mode: string } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const [editing, setEditing] = useState<number | null>(null);
-  const premiumDemo = s.merchants.find((m) => m.plan === "premium" && m.status === "active");
+  const premiumDemo: any = null;
 
   // ---------- Modèle Excel ----------
   const downloadTemplate = async () => {

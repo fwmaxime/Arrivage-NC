@@ -5,6 +5,7 @@ import { useNav } from "./nav";
 import { CATEGORIES, COMMUNES, PLANS, planById, fmtRel, Merchant, PlanId } from "./data";
 import { Btn, Segmented, MerchantLogo, Empty, Modal, Field, Chip, cx } from "./ui";
 import { AdminMerchants } from "./admin";
+import { NeedAccount } from "./auth";
 
 const COLORS = ["#203C31", "#E77938", "#2B6F8A", "#7A3B46", "#5C6B3A", "#3C5A73", "#8A5A2B", "#24344D"];
 type F = { name: string; tagline: string; description: string; commune: string; address: string; phone: string; email: string; contactName: string; siret: string; categories: string[]; plan: PlanId; hours: string };
@@ -21,13 +22,13 @@ function validate(f: F, existing: Merchant[]) {
   return e;
 }
 
-function build(f: F, status: Merchant["status"], source: Merchant["source"]): Merchant {
+function build(f: F, status: Merchant["status"], source: Merchant["source"], ownerId: string): Merchant {
   const name = f.name.trim();
   return {
     id: "m-" + newId(), name, tagline: f.tagline.trim() || CATEGORIES.find((c) => c.id === f.categories[0])?.label || "Commerce", description: f.description.trim() || "Commerce local.",
     commune: f.commune, address: f.address.trim(), hours: f.hours.split("\n").map((h) => h.trim()).filter(Boolean), phone: f.phone.trim(), email: f.email.trim(),
     categories: f.categories as any, color: COLORS[name.length % COLORS.length], ink: "#FFFFFF", shape: (["round", "square", "pill"] as const)[name.length % 3],
-    plan: f.plan, status, verified: source === "admin", followersBase: 0, joinedAt: new Date().toISOString().slice(0, 10), addressVerified: false,
+    plan: source === "admin" ? f.plan : "free", planRequest: source === "admin" || f.plan === "free" ? null : f.plan, ownerId, status, verified: source === "admin", followersBase: 0, joinedAt: new Date().toISOString().slice(0, 10), addressVerified: false,
     stores: [f.commune], siret: f.siret.trim() || undefined, contactName: f.contactName.trim() || undefined, appliedAt: new Date().toISOString(), source,
   };
 }
@@ -42,7 +43,7 @@ function MerchantFields({ f, setF, err, admin }: { f: F; setF: (f: F) => void; e
         <Field label="Commune *" htmlFor="sg-com"><select id="sg-com" value={f.commune} onChange={(e) => set("commune", e.target.value)}>{COMMUNES.map((c) => <option key={c}>{c}</option>)}</select></Field>
         <Field label="Adresse *" error={err.address} htmlFor="sg-addr"><input id="sg-addr" value={f.address} onChange={(e) => set("address", e.target.value)} /></Field>
         <Field label="Téléphone *" error={err.phone} htmlFor="sg-phone"><input id="sg-phone" value={f.phone} onChange={(e) => set("phone", e.target.value)} /></Field>
-        <Field label="E-mail *" error={err.email} htmlFor="sg-mail"><input id="sg-mail" value={f.email} onChange={(e) => set("email", e.target.value)} /></Field>
+        <Field label="E-mail du commerce *" error={err.email} htmlFor="sg-mail"><input id="sg-mail" value={f.email} onChange={(e) => set("email", e.target.value)} /></Field>
         <Field label="Nom du responsable" htmlFor="sg-contact"><input id="sg-contact" value={f.contactName} onChange={(e) => set("contactName", e.target.value)} /></Field>
         <Field label="N° RIDET" hint="Identifiant d'entreprise en Nouvelle-Calédonie" htmlFor="sg-ridet"><input id="sg-ridet" value={f.siret} onChange={(e) => set("siret", e.target.value)} /></Field>
       </div>
@@ -75,7 +76,7 @@ export function AdminMerchantsPage() {
   const create = () => {
     const e = validate(f, s.merchants); setErr(e);
     if (Object.keys(e).length) return;
-    const m = build(f, "active", "admin");
+    const m = build(f, "active", "admin", s.me!.id);
     mutate((d) => { d.merchants.push(m); log(d, `Commerçant ajouté par l'admin : ${m.name} (${planById(m.plan).name})`, "admin"); });
     toast(`${m.name} ajouté et visible dans l'annuaire`); setAdding(false); setF(blank()); setTab("accounts");
   };
@@ -150,7 +151,7 @@ export function AdminMerchantsPage() {
       <Modal open={adding} onClose={() => setAdding(false)} title="Ajouter un commerçant" wide>
         <form className="form" onSubmit={(e) => { e.preventDefault(); create(); }} noValidate>
           <MerchantFields f={f} setF={setF} err={err} admin />
-          <p className="note"><Info size={14} /> Un compte créé par l'admin est validé et vérifié directement. Démo : aucun e-mail d'invitation n'est envoyé.</p>
+          <p className="note"><Info size={14} /> Un compte créé par l'admin est validé et vérifié directement.</p>
           <div className="row-end"><Btn type="button" variant="ghost" onClick={() => setAdding(false)}>Annuler</Btn><Btn type="submit" icon={Check}>Créer le compte</Btn></div>
         </form>
       </Modal>
@@ -166,7 +167,7 @@ export function AdminMerchantsPage() {
 // ---------- Inscription publique (côté consommateur) ----------
 export function MerchantSignup() {
   const { s, mutate, toast, log } = useStore();
-  const { back, go } = useNav();
+  const { back, go, setMode } = useNav();
   const [f, setF] = useState<F>(blank());
   const [err, setErr] = useState<Record<string, string>>({});
   const [done, setDone] = useState<Merchant | null>(null);
@@ -175,18 +176,19 @@ export function MerchantSignup() {
     const er = validate(f, s.merchants); setErr(er);
     if (Object.keys(er).length) { toast("Vérifiez les champs signalés", "warn"); return; }
     const auto = !s.settings.manualApproval;
-    const m = build(f, auto ? "active" : "pending", "inscription");
-    mutate((d) => { d.merchants.push(m); log(d, auto ? `Nouveau commerce inscrit (validation automatique) : ${m.name}` : `Nouvelle demande d'inscription : ${m.name}`, "commerçant"); });
+    const m = build(f, auto ? "active" : "pending", "inscription", s.me!.id);
+    mutate((d) => { d.merchants.push(m); d.currentMerchant = m.id; if (d.me && d.me.role === "client") d.me = { ...d.me, role: "merchant" }; log(d, auto ? `Nouveau commerce inscrit (validation automatique) : ${m.name}` : `Nouvelle demande d'inscription : ${m.name}`, "commerçant"); });
     setDone(m);
   };
+  if (!s.me) return <NeedAccount title="Inscrire mon commerce" body="Créez d'abord un compte gratuit (ou connectez-vous) : il vous servira à gérer votre commerce et vos publications." />;
   if (done) return (
     <div className="page narrow">
       <div className="panel signup-done">
         <span className="empty-ico">{done.status === "pending" ? <Clock size={22} /> : <Check size={22} />}</span>
         <h1 className="page-title">{done.status === "pending" ? "Demande envoyée" : "Commerce inscrit"}</h1>
         <p className="muted">{done.status === "pending" ? `L'équipe ARRIVAGE va vérifier les informations de ${done.name}. Le commerce apparaîtra dans l'annuaire après validation.` : `${done.name} est visible dans l'annuaire.`}</p>
-        <p className="note"><Info size={14} /> Pour tester, passez en mode Admin, puis Commerçants et « Inscriptions à valider ».</p>
-        <div className="row-center"><Btn variant="outline" onClick={() => go("merchants")}>Retour à l'annuaire</Btn></div>
+        <p className="note"><Info size={14} /> Vous pouvez déjà préparer vos publications dans votre espace commerçant : elles seront visibles dès la validation.</p>
+        <div className="row-center" style={{ flexWrap: "wrap" }}><Btn variant="outline" onClick={() => go("merchants")}>Retour à l'annuaire</Btn><Btn onClick={() => setMode("merchant", { name: "dashboard" })}>Ouvrir mon espace commerçant</Btn></div>
       </div>
     </div>
   );
@@ -194,7 +196,7 @@ export function MerchantSignup() {
     <div className="page narrow">
       <button className="back" onClick={back}><ChevronLeft size={18} /> Retour</button>
       <h1 className="page-title">Inscrire mon commerce</h1>
-      <p className="muted" style={{ margin: "4px 0 18px" }}>Rejoignez ARRIVAGE pour annoncer vos arrivages aux Calédoniens. {s.settings.manualApproval ? "Chaque inscription est vérifiée par l'équipe avant publication." : ""} Démo : aucune donnée n'est transmise.</p>
+      <p className="muted" style={{ margin: "4px 0 18px" }}>Rejoignez ARRIVAGE pour annoncer vos arrivages aux Calédoniens. {s.settings.manualApproval ? "Chaque inscription est vérifiée par l'équipe avant publication." : ""}</p>
       <form className="form panel" onSubmit={submit} noValidate>
         <MerchantFields f={f} setF={setF} err={err} />
         <div className="row-end"><Btn type="submit" icon={Store}>Envoyer ma demande</Btn></div>

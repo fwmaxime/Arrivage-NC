@@ -218,7 +218,7 @@ export function ThemeSettings() {
       <div className="page-head">
         <div>
           <h1 className="page-title">Personnalisation</h1>
-          <p className="muted">Choisissez l'apparence de l'espace {SPACE_LABEL[mode].toLowerCase()}. Les changements s'appliquent tout de suite et restent enregistrés sur cet appareil, même après une réinitialisation de la démo.</p>
+          <p className="muted">Choisissez l'apparence de l'espace {SPACE_LABEL[mode].toLowerCase()}. Les changements s'appliquent tout de suite et restent enregistrés sur cet appareil.</p>
         </div>
         <Btn variant="ghost" icon={RotateCcw} onClick={() => resetSpace(mode)}>Thème d'origine</Btn>
       </div>

@@ -83,7 +83,7 @@ export function TeamPage() {
   const [removing, setRemoving] = useState<Staff | null>(null);
   const team = s.staff.filter((x) => x.merchantId === me.id);
   const full = team.length >= MAX_STAFF;
-  const premiumDemo = s.merchants.find((m) => m.plan === "premium" && m.status === "active");
+  const premiumDemo: any = null;
 
   const steps = (
     <div className="team-steps">
