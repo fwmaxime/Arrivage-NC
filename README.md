@@ -52,6 +52,7 @@ Ordre à respecter. Chaque script peut être relancé sans risque. **Après tout
 4. `supabase/staff.sql` : comptes employés (Gérant, Vendeur), fonction `join_staff`.
 5. `supabase/photos.sql` : bucket de stockage « photos ».
 6. `supabase/compte.sql` : bouton « Supprimer mon compte » (fonction `delete_my_account`).
+7. `supabase/admin.sql` : suppression d’un commerce ou d’un compte par un admin.
 
 **Pages légales** : `sources/src/legal.tsx` (mentions légales, confidentialité, conditions). Compléter l’objet `EDITOR` en haut du fichier (responsables, statut, adresse, directeur de la publication) avant de publier sur le site officiel.
 
