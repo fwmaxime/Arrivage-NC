@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { toHash, fromHash } from "./url";
 import { useBlockGate, BlockedPage } from "./blocked";
+import { HowPage } from "./how";
 import { createRoot } from "react-dom/client";
 import { Home as HomeI, Compass, BellRing, Heart, Store, Bell, User, MapPin, LayoutDashboard, Package, Plus, Target, Crown, Settings, Calculator, Users, Flag, Layers, ShieldCheck, RotateCcw, Search, X, ChevronDown, Ban, Palette, ShoppingBag, Map as MapIco, Star, FileSpreadsheet, Users as UsersIco } from "lucide-react";
 import { TeamPage, ActAsBanner, NoAccess } from "./team";
@@ -80,6 +81,7 @@ function ConsumerShell({ route, go }: any) {
       case "profile": return <ProfilePage />;
       case "signup": return <MerchantSignup />;
       case "orders": return s.me ? <MyReservations /> : <NeedAccount title="Mes réservations" body="Connectez-vous pour voir et suivre vos réservations." />;
+      case "how": return <HowPage />;
       case "theme": return <ThemeSettings />;
       default: return <Home />;
     }
@@ -104,7 +106,7 @@ function ConsumerShell({ route, go }: any) {
       <DemoBanner />
       <main className="cmain" key={route.name + JSON.stringify(route.params || {})}>{page}</main>
       <footer className="cfoot">
-        <div><Logo size={18} /><p>Tout ce qui débarque, au même endroit.</p><button className="link" onClick={() => go("signup")}>Vous êtes commerçant ? Inscrire mon commerce</button><DemoLink /></div>
+        <div><Logo size={18} /><p>Tout ce qui débarque, au même endroit.</p><button className="link" onClick={() => go("how")}>Comment ça marche ?</button><button className="link" onClick={() => go("signup")}>Vous êtes commerçant ? Inscrire mon commerce</button><DemoLink /></div>
         <p className="muted small">Prix et disponibilités sont déclarés par les commerçants. Contact : <a href="mailto:contact@arrivagenc.com">contact@arrivagenc.com</a></p>
       </footer>
       <nav className="bottomnav show-md">

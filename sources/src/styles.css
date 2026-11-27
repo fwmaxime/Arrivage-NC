@@ -1683,3 +1683,35 @@ input[type="range"]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 4px 
 /* Page « Accès suspendu » (compte bloqué) */
 .blocked-badge { background: rgba(231, 121, 56, .16); border-color: rgba(231, 121, 56, .45); color: #F7C3A3; }
 .blocked-page .standby-admin { display: inline-flex; align-items: center; gap: 6px; }
+/* Comment ça marche : bandeau d'accueil et page */
+.cfoot .link { display: block; }
+.how-band { position: relative; padding: 28px 30px; border-radius: calc(22px * var(--rs)); background: var(--surface); border: 1px solid var(--line); }
+.how-band .eyebrow, .how-hero .eyebrow { color: var(--orange); display: inline-flex; align-items: center; gap: 6px; }
+.how-band h2 { font-size: clamp(21px, 2.4vw, 27px); margin: 6px 0 8px; padding-right: 36px; }
+.how-band-head p { color: var(--muted); max-width: 70ch; margin: 0 0 18px; }
+.how-close { position: absolute; top: 14px; right: 14px; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--muted); }
+.how-close:hover { background: var(--soft); color: var(--fg); }
+.how-steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.how-steps li { display: flex; gap: 12px; padding: 16px; border-radius: calc(16px * var(--rs)); background: var(--surface-2); border: 1px solid var(--line); }
+.how-steps strong { display: block; font-size: 15px; }
+.how-steps em { font-style: normal; color: var(--orange); }
+.how-steps p { margin: 4px 0 0; color: var(--muted); font-size: 13.5px; line-height: 1.45; }
+.how-ico { width: 40px; height: 40px; flex: none; border-radius: 12px; background: var(--green); color: var(--green-fg); display: flex; align-items: center; justify-content: center; }
+.how-band-foot, .how-cta { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 18px; }
+.how-page .how-steps { grid-template-columns: 1fr; }
+.how-hero { padding: 8px 0 20px; }
+.how-hero h1 { font-family: var(--f-display); font-size: clamp(26px, 4vw, 38px); line-height: 1.1; margin: 8px 0 12px; }
+.how-hero p { color: var(--muted); font-size: 16px; line-height: 1.55; margin: 0; }
+.how-tabs { margin: 4px 0 18px; }
+.how-tabs button { display: inline-flex; align-items: center; gap: 6px; }
+.how-h2 { display: flex; align-items: center; gap: 8px; font-size: 19px; margin: 32px 0 10px; }
+.how-faq details { border-bottom: 1px solid var(--line); padding: 14px 2px; }
+.how-faq summary { cursor: pointer; font-weight: 600; list-style: none; display: flex; justify-content: space-between; gap: 12px; }
+.how-faq summary::-webkit-details-marker { display: none; }
+.how-faq summary::after { content: "+"; color: var(--muted); font-size: 20px; line-height: 1; }
+.how-faq details[open] summary::after { content: "–"; }
+.how-faq p { color: var(--muted); margin: 8px 0 0; line-height: 1.55; }
+.how-contact { margin-top: 24px; }
+@media (max-width: 760px) { .how-steps { grid-template-columns: 1fr; } .how-band { padding: 22px 18px; } }
+.how-tabs { display: flex; width: 100%; max-width: 420px; }
+.how-tabs button { flex: 1; justify-content: center; }
