@@ -21,6 +21,7 @@ export function stable(v: any): string {
 
 export function authError(msg?: string) {
   const m = (msg || "").toLowerCase();
+  if (m.includes("banned")) return "Ce compte a été bloqué par la modération. Écrivez à contact@arrivagenc.com si vous pensez qu'il s'agit d'une erreur.";
   if (m.includes("invalid login")) return "Identifiant ou mot de passe incorrect.";
   if (m.includes("already registered") || m.includes("already been registered")) return "Un compte existe déjà avec cette adresse e-mail.";
   if (m.includes("password") && (m.includes("at least") || m.includes("short") || m.includes("weak"))) return "Mot de passe trop court ou trop simple (8 caractères minimum).";

@@ -7,7 +7,6 @@ import { CATEGORIES, COMMUNES, STATUSES, catById, fmtXPF, fmtNum, fmtRel, fmtDat
 import { useStore, alertMatches, Alert, productHay, newId } from "./store";
 import { matchScore, correct, termScore, indexOf, words as qWords } from "./search";
 import { useNav } from "./nav";
-import { ReserveButton } from "./reservations";
 import { RatingBadge, ReviewsBlock } from "./reviews";
 import { AccountSection } from "./auth";
 import { dealState, dealVisible, dealBadge, dealTitle, dealWhen, dealPeriod, isRestoProduct, pctOff } from "./deals";
@@ -485,8 +484,8 @@ export function ProductPage({ params }: any) {
           {p.tags.length > 0 && <div className="tags">{p.tags.map((t) => <span key={t} className="tag">#{t}</span>)}</div>}
 
           <div className="pinfo-actions">
-            {isRestoProduct(p) || !p.price ? null : <ReserveButton p={p} m={m} />}
-            <Btn size="lg" variant={isRestoProduct(p) || !p.price ? "accent" : "outline"} icon={Phone} onClick={() => { setContact(true); mutate((d) => { const x = d.products.find((y) => y.id === p.id); if (x) x.contacts = (x.contacts || 0) + 1; }); }}>Contacter le commerce</Btn>
+            {/* Réservation retirée (27/11/2026) : trop d'abus et de produits jamais retirés. L'achat en ligne la remplacera. */}
+            <Btn size="lg" variant="accent" icon={Phone} onClick={() => { setContact(true); mutate((d) => { const x = d.products.find((y) => y.id === p.id); if (x) x.contacts = (x.contacts || 0) + 1; }); }}>Contacter le commerce</Btn>
             <Btn size="lg" variant="outline" icon={BellRing} onClick={() => go("alerts", { create: { query: p.name, category: p.category, brand: p.brand } })}>Créer une alerte</Btn>
             <div className="row">
               <FavButtonLabeled id={p.id} />
@@ -494,7 +493,7 @@ export function ProductPage({ params }: any) {
               <Btn variant="ghost" icon={Flag} onClick={() => !requireAccount("Connectez-vous pour signaler une publication à la modération.") ? null : s.profile.blocked ? toast("Votre compte a été bloqué par la modération : vous ne pouvez plus envoyer de signalement", "warn") : setReport(true)}>Signaler</Btn>
             </div>
           </div>
-          <p className="disclaimer">{isRestoProduct(p) ? "Prix et disponibilité déclarés par le restaurant. Commande et réservation de table directement auprès du restaurant." : "Prix et disponibilité déclarés par le commerçant. La réservation met le produit de côté : vous le réglez directement en magasin."}{p.deal ? " Offre valable dans la limite des stocks et aux dates indiquées." : ""}</p>
+          <p className="disclaimer">{isRestoProduct(p) ? "Prix et disponibilité déclarés par le restaurant. Commande et réservation de table directement auprès du restaurant." : "Prix et disponibilité déclarés par le commerçant. Vérifiez la disponibilité auprès du commerce avant de vous déplacer."}{p.deal ? " Offre valable dans la limite des stocks et aux dates indiquées." : ""}</p>
         </div>
       </div>
 
@@ -859,7 +858,7 @@ export function ProfilePage() {
         <SectionHead title="Centres d'intérêt" sub="Utilisés pour vous proposer des arrivages sur l'accueil" />
         <div className="chips-wrap">{CATEGORIES.map((c) => { const on = s.profile.interests.includes(c.id); return <Chip key={c.id} icon={c.icon} active={on} onClick={() => mutate((d) => { d.profile.interests = on ? d.profile.interests.filter((x) => x !== c.id) : [...d.profile.interests, c.id]; })}>{c.label}</Chip>; })}</div>
       </section>
-      {s.me && (
+      {s.me && s.reservations.some((r) => r.buyerId === s.me!.id) && (
         <section className="sec">
           <SectionHead title="Mes réservations" sub="Produits mis de côté en magasin" />
           <Btn variant="outline" icon={ShoppingBag} onClick={() => go("orders")}>Voir mes réservations ({active} en cours)</Btn>

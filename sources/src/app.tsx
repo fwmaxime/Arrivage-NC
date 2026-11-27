@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { toHash, fromHash } from "./url";
+import { useBlockGate, BlockedPage } from "./blocked";
 import { createRoot } from "react-dom/client";
 import { Home as HomeI, Compass, BellRing, Heart, Store, Bell, User, MapPin, LayoutDashboard, Package, Plus, Target, Crown, Settings, Calculator, Users, Flag, Layers, ShieldCheck, RotateCcw, Search, X, ChevronDown, Ban, Palette, ShoppingBag, Map as MapIco, Star, FileSpreadsheet, Users as UsersIco } from "lucide-react";
 import { TeamPage, ActAsBanner, NoAccess } from "./team";
@@ -62,10 +63,11 @@ function ConsumerShell({ route, go }: any) {
   const [loc, setLoc] = useState(false);
   const [msearch, setMsearch] = useState(false);
   const unread = s.notifications.filter((n) => !n.read).length;
+  const hasRes = s.reservations.some((r) => r.buyerId === s.me?.id); // anciennes réservations seulement : on ne peut plus réserver
   const resActive = s.reservations.filter((r) => r.buyerId === s.me?.id && (r.status === "paid" || r.status === "ready")).length;
   const links = [
     { n: "home", l: "Accueil", i: HomeI }, { n: "explore", l: "Explorer", i: Compass }, { n: "alerts", l: "Alertes", i: BellRing },
-    { n: "favorites", l: "Favoris", i: Heart }, { n: "merchants", l: "Commerces", i: Store }, { n: "orders", l: "Réservations", i: ShoppingBag, desk: true },
+    { n: "favorites", l: "Favoris", i: Heart }, { n: "merchants", l: "Commerces", i: Store }, ...(hasRes ? [{ n: "orders", l: "Réservations", i: ShoppingBag, desk: true }] : []),
   ];
   const page = (() => {
     switch (route.name) {
@@ -93,18 +95,17 @@ function ConsumerShell({ route, go }: any) {
           <div className="chead-r">
             <button className="locbtn" onClick={() => setLoc(true)}><MapPin size={15} /><span>{s.profile.commune || "Tout le territoire"}</span><ChevronDown size={14} className="hide-xs" /></button>
             <IconBtn icon={Search} label="Rechercher" className="show-md" onClick={() => setMsearch(true)} />
-            <div className="bell-wrap show-md"><IconBtn icon={ShoppingBag} label="Mes réservations" active={route.name === "orders"} onClick={() => go("orders")} />{resActive > 0 && <span className="badge">{resActive}</span>}</div>
+            {hasRes && <div className="bell-wrap show-md"><IconBtn icon={ShoppingBag} label="Mes réservations" active={route.name === "orders"} onClick={() => go("orders")} />{resActive > 0 && <span className="badge">{resActive}</span>}</div>}
             <div className="bell-wrap"><IconBtn icon={Bell} label="Notifications" onClick={() => setNotif(true)} />{unread > 0 && <span className="badge">{unread}</span>}</div>
             {s.me ? <IconBtn icon={User} label="Mon compte" active={route.name === "profile"} onClick={() => go("profile")} /> : <button className="btn btn-primary btn-sm chead-login" onClick={() => openAuth()}><User size={15} /><span className="hide-xs">Se connecter</span></button>}
           </div>
         </div>
       </header>
       <DemoBanner />
-      {s.me?.blocked && <div className="blocked-banner"><Ban size={15} /> Votre compte a été bloqué par la modération : vous ne pouvez plus réserver, signaler ni publier d'avis. Écrivez à contact@arrivagenc.com pour en savoir plus.</div>}
       <main className="cmain" key={route.name + JSON.stringify(route.params || {})}>{page}</main>
       <footer className="cfoot">
         <div><Logo size={18} /><p>Tout ce qui débarque, au même endroit.</p><button className="link" onClick={() => go("signup")}>Vous êtes commerçant ? Inscrire mon commerce</button><DemoLink /></div>
-        <p className="muted small">Prix et disponibilités sont déclarés par les commerçants. Les produits réservés sont mis de côté et réglés directement en magasin. Contact : <a href="mailto:contact@arrivagenc.com">contact@arrivagenc.com</a></p>
+        <p className="muted small">Prix et disponibilités sont déclarés par les commerçants. Contact : <a href="mailto:contact@arrivagenc.com">contact@arrivagenc.com</a></p>
       </footer>
       <nav className="bottomnav show-md">
         {links.filter((x: any) => !x.desk).map((x) => <button key={x.n} className={cx(isActive(x.n) && "is-on")} onClick={() => go(x.n, {})}><x.i size={20} strokeWidth={isActive(x.n) ? 2.3 : 1.8} /><span>{x.l}</span></button>)}
@@ -297,7 +298,9 @@ function App() {
   }, [ui]);
   useApplyTheme(mode);
   const standby = useStandby();
+  const blockGate = useBlockGate();
   if (standby.loading) return <StandbySplash />;
+  if (blockGate) return <NavCtx.Provider value={{ mode, route, go, back, setMode }}><BlockedPage /><Toasts /><AuthModal /></NavCtx.Provider>;
   if (standby.gate) return <NavCtx.Provider value={{ mode, route, go, back, setMode }}><StandbyPage /><Toasts /><AuthModal /></NavCtx.Provider>;
   return (
     <NavCtx.Provider value={{ mode, route, go, back, setMode }}>

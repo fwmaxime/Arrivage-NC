@@ -141,7 +141,7 @@ export function AdminUsers() {
   const list = s.users.filter((u) => !q || norm(u.label + " " + u.email).includes(norm(q))).sort((a, b) => +new Date(b.joinedAt) - +new Date(a.joinedAt));
   return (
     <div className="page">
-      <div className="page-head"><div><h1 className="page-title">Utilisateurs</h1><p className="muted">{s.users.length} compte(s). Un compte bloqué ne peut plus réserver, signaler ni publier d'avis.</p></div></div>
+      <div className="page-head"><div><h1 className="page-title">Utilisateurs</h1><p className="muted">{s.users.length} compte(s). Un compte bloqué est déconnecté dans les secondes qui suivent et ne peut plus accéder au site, ni avec ce compte ni depuis cet appareil.</p></div></div>
       <div className="search search-inline" style={{ maxWidth: 360, marginBottom: 16 }}><Search size={18} className="search-ico" /><input id="au-q" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Nom ou e-mail" aria-label="Rechercher" /></div>
       <div className="table-scroll panel p0">
         <table className="admin-table">

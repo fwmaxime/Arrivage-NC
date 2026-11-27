@@ -1680,3 +1680,6 @@ input[type="range"]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 4px 
 .standby-card.is-on .standby-card-ico { color: var(--accent); }
 .standby-card-txt { flex: 1; min-width: 220px; display: flex; flex-direction: column; gap: 3px; }
 .standby-card-txt span { color: var(--muted); font-size: 14px; }
+/* Page « Accès suspendu » (compte bloqué) */
+.blocked-badge { background: rgba(231, 121, 56, .16); border-color: rgba(231, 121, 56, .45); color: #F7C3A3; }
+.blocked-page .standby-admin { display: inline-flex; align-items: center; gap: 6px; }
