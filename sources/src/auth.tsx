@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from "react";
-import { LogIn, UserPlus, Mail, KeyRound, Check, Info, LogOut, ShieldCheck, Store, Eye, EyeOff } from "lucide-react";
+import { LogIn, UserPlus, Mail, KeyRound, Check, Info, LogOut, ShieldCheck, Store, Eye, EyeOff, Download, Trash2 } from "lucide-react";
 import { useStore } from "./store";
 import { useNav } from "./nav";
 import { Btn, Modal, Field, Segmented, Logo } from "./ui";
+import { toHash } from "./url";
 
 function Password({ id, value, onChange, auto, placeholder }: { id: string; value: string; onChange: (v: string) => void; auto: string; placeholder?: string }) {
   const [show, setShow] = useState(false);
@@ -22,6 +23,7 @@ export function AuthModal() {
   const [pw, setPw] = useState("");
   const [pw2, setPw2] = useState("");
   const [name, setName] = useState("");
+  const [agree, setAgree] = useState(false);
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
   const [info, setInfo] = useState("");
@@ -35,6 +37,7 @@ export function AuthModal() {
     if (name.trim().length < 2) return setErr("Indiquez votre prénom ou un nom d'affichage.");
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(id.trim())) return setErr("Adresse e-mail invalide.");
     if (pw.length < 8) return setErr("Mot de passe trop court (8 caractères minimum).");
+    if (!agree) return setErr("Acceptez les conditions d'utilisation pour créer votre compte.");
     run(async () => { const r = await signUp(id, pw, name); if (r.confirm) setInfo("Compte créé. Ouvrez le lien reçu par e-mail pour l'activer, puis connectez-vous."); return r.error; });
   };
   const forgot = (e: React.FormEvent) => {
@@ -71,6 +74,7 @@ export function AuthModal() {
             <Field label="Prénom ou nom affiché" htmlFor="au-name"><input id="au-name" autoComplete="given-name" value={name} onChange={(e) => setName(e.target.value.slice(0, 40))} /></Field>
             <Field label="E-mail" htmlFor="au-mail"><input id="au-mail" type="email" autoComplete="email" autoCapitalize="none" value={id} onChange={(e) => setId(e.target.value)} /></Field>
             <Field label="Mot de passe" hint="8 caractères minimum" htmlFor="au-npw"><Password id="au-npw" value={pw} onChange={setPw} auto="new-password" /></Field>
+            <label className="check-line"><input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} /><span>J'accepte les <a href={toHash("consumer", { name: "terms" })} target="_blank" rel="noopener">conditions d'utilisation</a> et j'ai lu la <a href={toHash("consumer", { name: "privacy" })} target="_blank" rel="noopener">politique de confidentialité</a>.</span></label>
             {err && <p className="field-err">{err}</p>}
             <Btn type="submit" icon={UserPlus} disabled={busy || !online} className="w-full">{busy ? "Création…" : "Créer mon compte"}</Btn>
             <p className="muted small" style={{ margin: 0 }}>Le compte est gratuit. Il sert à inscrire votre commerce et à retrouver vos favoris et alertes sur tous vos appareils.</p>
@@ -97,11 +101,12 @@ export function AuthModal() {
 
 // Bloc « Mon compte » de la page Profil
 export function AccountSection() {
-  const { s, openAuth, signOut, updatePassword, updateName, toast } = useStore();
+  const { s, openAuth, signOut, updatePassword, updateName, deleteAccount, toast } = useStore();
   const { setMode } = useNav();
   const [pwOpen, setPwOpen] = useState(false);
   const [pw, setPw] = useState(""); const [pw2, setPw2] = useState(""); const [err, setErr] = useState(""); const [busy, setBusy] = useState(false);
   const [name, setName] = useState(s.me?.displayName || "");
+  const [delOpen, setDelOpen] = useState(false); const [delTxt, setDelTxt] = useState(""); const [delErr, setDelErr] = useState("");
   useEffect(() => setName(s.me?.displayName || ""), [s.me?.displayName]);
   const me = s.me;
   if (!me) return (
@@ -110,6 +115,7 @@ export function AccountSection() {
       <div className="row" style={{ marginTop: 12, flexWrap: "wrap" }}><Btn icon={LogIn} onClick={() => openAuth()}>Se connecter</Btn><Btn variant="outline" icon={UserPlus} onClick={() => openAuth(undefined, "signup")}>Créer un compte</Btn></div>
     </div>
   );
+  const ownsShop = s.merchants.some((m: any) => m.ownerId === me.id);
   const roleLabel = me.role === "admin" ? "Administrateur" : me.role === "merchant" ? "Commerçant" : "Client";
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -133,6 +139,19 @@ export function AccountSection() {
         <Btn size="sm" variant="outline" icon={KeyRound} onClick={() => setPwOpen(true)}>Changer le mot de passe</Btn>
         <Btn size="sm" variant="ghost" icon={LogOut} onClick={() => signOut()}>Se déconnecter</Btn>
       </div>
+      <div className="row account-data" style={{ marginTop: 12, flexWrap: "wrap" }}>
+        <Btn size="sm" variant="ghost" icon={Download} onClick={() => exportMyData(s)}>Télécharger mes données</Btn>
+        <Btn size="sm" variant="ghost" icon={Trash2} className="danger-text" onClick={() => { setDelOpen(true); setDelTxt(""); setDelErr(""); }}>Supprimer mon compte</Btn>
+      </div>
+      <Modal open={delOpen} onClose={() => setDelOpen(false)} title="Supprimer mon compte">
+        <form className="form" onSubmit={async (e) => { e.preventDefault(); if (delTxt.trim().toUpperCase() !== "SUPPRIMER") return setDelErr("Tapez SUPPRIMER pour confirmer."); setBusy(true); const r = await deleteAccount(); setBusy(false); if (r) setDelErr(r); else setDelOpen(false); }} noValidate>
+          <p>Votre compte, vos favoris, alertes, notifications et avis seront effacés définitivement. Cette action ne peut pas être annulée.</p>
+          {ownsShop && <p className="banner-warn"><Info size={15} /> Vous possédez un commerce. Écrivez d'abord à <a href="mailto:contact@arrivagenc.com">contact@arrivagenc.com</a> pour le fermer ou le transférer.</p>}
+          <Field label="Pour confirmer, tapez SUPPRIMER" htmlFor="ac-del"><input id="ac-del" autoComplete="off" value={delTxt} onChange={(e) => setDelTxt(e.target.value)} /></Field>
+          {delErr && <p className="field-err">{delErr}</p>}
+          <div className="row-end"><Btn variant="ghost" onClick={() => setDelOpen(false)}>Annuler</Btn><Btn type="submit" icon={Trash2} variant="danger" disabled={busy || ownsShop}>Supprimer définitivement</Btn></div>
+        </form>
+      </Modal>
       <Modal open={pwOpen} onClose={() => setPwOpen(false)} title="Changer le mot de passe">
         <form className="form" onSubmit={save} noValidate>
           <Field label="Nouveau mot de passe" hint="8 caractères minimum" htmlFor="ac-pw"><Password id="ac-pw" value={pw} onChange={setPw} auto="new-password" /></Field>
@@ -158,4 +177,23 @@ export function NeedAccount({ title, body }: { title: string; body: string }) {
       </div>
     </div>
   );
+}
+
+// Copie lisible de tout ce qui concerne la personne connectée (droit d'accès)
+function exportMyData(s: any) {
+  const me = s.me;
+  const data = {
+    exporte_le: new Date().toISOString(),
+    compte: { id: me.id, email: me.email, identifiant: me.username || null, nom_affiche: me.displayName, role: me.role, cree_le: me.createdAt || null },
+    profil: s.profile,
+    favoris: s.favorites, commerces_suivis: s.follows, alertes: s.alerts, notifications: s.notifications, recherches: s.searchLog,
+    avis: s.reviews.filter((r: any) => r.authorId === me.id),
+    reservations: s.reservations.filter((r: any) => r.buyerId === me.id),
+    signalements: s.reports.filter((r: any) => r.reporterId === me.id),
+    commerces: s.merchants.filter((m: any) => m.ownerId === me.id).map((m: any) => ({ ...m, logo: m.logo && String(m.logo).startsWith("data:") ? "(image)" : m.logo })),
+    equipes: s.staff.filter((x: any) => x.userId === me.id).map(({ code, ...x }: any) => x),
+  };
+  const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }));
+  const a = document.createElement("a"); a.href = url; a.download = "arrivage-mes-donnees.json"; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }

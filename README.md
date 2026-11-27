@@ -41,3 +41,21 @@ git mv -f demo-x7q4/index.html index.html && git commit -m "Remise en ligne du p
 - **Réservation retirée** (27/11/2026) : le bouton « Réserver » n'existe plus (abus et produits jamais retirés). L'achat en ligne le remplacera ; les anciennes réservations restent consultables.
 - **Achat en ligne, payé directement au commerçant** : le commerçant colle un lien de paiement (banque, Stripe, PayPal, sa boutique en ligne) dans Ma fiche, ou un lien différent par produit dans le formulaire de publication. Un bouton « Acheter » apparaît alors sur ses produits. ARRIVAGE ne touche pas l'argent et ne prend pas de commission : le modèle économique reste les abonnements. Liens `https://` uniquement.
 - **Comment ça marche** (`sources/src/how.tsx`) : bandeau refermable sur l'accueil (3 étapes, créer un compte, je suis commerçant) et page `#/comment-ca-marche` avec onglets client / commerçant et questions fréquentes. Lien aussi en pied de page.
+
+## Scripts Supabase (SQL Editor > New query > coller > Run)
+
+Ordre à respecter. Chaque script peut être relancé sans risque. **Après toute exécution de `schema.sql`, relancer les suivants.**
+
+1. `supabase/schema.sql` : tables, règles d'accès de base.
+2. `supabase/blocage.sql` : blocage complet d'un compte.
+3. `supabase/avis.sql` : avis sans réservation (modifiables, un par commerce).
+4. `supabase/staff.sql` : comptes employés (Gérant, Vendeur), fonction `join_staff`.
+5. `supabase/photos.sql` : bucket de stockage « photos ».
+6. `supabase/compte.sql` : bouton « Supprimer mon compte » (fonction `delete_my_account`).
+
+**Pages légales** : `sources/src/legal.tsx` (mentions légales, confidentialité, conditions). Compléter l’objet `EDITOR` en haut du fichier (responsables, statut, adresse, directeur de la publication) avant de publier sur le site officiel.
+
+- **Photos** : enregistrées dans le stockage Supabase (bucket `photos/<id du commerce>/…`). Les anciennes photos enregistrées en texte sont déplacées automatiquement la première fois que le commerçant, un gérant ou un admin ouvre le site.
+- **Rafraîchissement** : un compte connecté ne recharge que les lignes modifiées toutes les 90 s, et tout le catalogue toutes les 15 min.
+- **Outil Excel** : `assets/xlsx-0.18.5.min.js` n'est chargé que sur la page Import (il n'est plus dans la page du site).
+- **Comptes employés** : Pro > Équipe (forfait Premium) > Inviter un membre. On envoie le lien et le code à l'employé, qui se connecte avec son propre compte sur `#/rejoindre-equipe`.

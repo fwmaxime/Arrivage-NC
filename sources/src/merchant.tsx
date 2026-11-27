@@ -8,13 +8,13 @@ import {
 import { DEAL_KINDS, OCCASIONS, DealKind, dealKind, dealState, dealWhen, dealBadge, dealTitle, isResto, presets, toLocalInput, RESTO_CAT } from "./deals";
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid, BarChart, Bar, Cell, PieChart, Pie } from "recharts";
 import { CATEGORIES, COMMUNES, STATUSES, PLANS, DemandItem, catById, planById, fmtXPF, fmtNum, fmtRel, fmtDate, norm, Product, Merchant, Status, PlanId, safeUrl } from "./data";
-import { useStore, alertMatches, newId, tokens, productHay } from "./store";
+import { useStore, alertMatches, newId, tokens, productHay, myMerchants, myStaffRow } from "./store";
 import { useNav } from "./nav";
 import { Btn, IconBtn, StatusPill, Chip, ProductVisual, MerchantLogo, Modal, Empty, SectionHead, Segmented, Field, Stat, DemoTag, cx, Confirm } from "./ui";
 
 export const useMe = () => {
   const { s } = useStore();
-  const mine = s.me?.role === "admin" ? s.merchants : s.merchants.filter((m) => m.ownerId && m.ownerId === s.me?.id);
+  const mine = s.me?.role === "admin" ? s.merchants : myMerchants(s);
   return mine.find((m) => m.id === s.currentMerchant) || mine[0];
 };
 
@@ -78,7 +78,7 @@ export function MerchantDashboard() {
 
       {me.status !== "active" && <div className="banner-warn"><Info size={16} /> {me.status === "pending" ? "Compte en attente de validation par l'équipe ARRIVAGE : vos publications ne sont pas encore visibles." : "Compte suspendu par la modération : vos publications ne sont plus visibles."}</div>}
       {s.reservations.some((r) => r.merchantId === me.id && r.status === "paid") && (
-        <button className="resbanner" onClick={() => go("reservations")}><ShoppingBag size={18} /> <span><strong>{s.reservations.filter((r) => r.merchantId === me.id && r.status === "paid").length} réservation(s) à préparer.</strong> Le client viendra retirer et payer en magasin.</span><strong>Voir</strong></button>
+        <button className="resbanner" onClick={() => go("reservations")}><ShoppingBag size={18} /> <span><strong>{s.reservations.filter((r) => r.merchantId === me.id && r.status === "paid").length} ancienne(s) réservation(s) encore ouverte(s).</strong> Les réservations n'existent plus : clôturez-les une fois le produit retiré ou annulé.</span><strong>Voir</strong></button>
       )}
       {s.reports.some((r) => r.merchantUnread && mine.some((p) => p.id === r.productId)) && (
         <button className="modbanner" onClick={() => go("moderation")}><Info size={16} /> <span>Vous avez un nouveau message de la modération concernant une publication signalée.</span><strong>Voir</strong></button>
@@ -140,7 +140,7 @@ export function MerchantDashboard() {
                 <div key={p.id} className="toprow">
                   <span className="rank">{i + 1}</span>
                   <span className="toprow-thumb"><ProductVisual p={p} /></span>
-                  <div className="toprow-main"><strong>{p.name}</strong><span className="muted small">{fmtXPF(p.price)} · <StatusPill status={p.status} small /></span></div>
+                  <div className="toprow-main"><strong>{p.name}</strong><span className="muted small">{fmtXPF(p.price)} · <StatusPill status={p.status} at={p.arrivedAt} small /></span></div>
                   <div className="toprow-num"><strong>{plan.can.stats === "none" ? "—" : fmtNum(p.views)}</strong><span className="muted small">vues</span></div>
                 </div>
               ))}
@@ -176,6 +176,8 @@ export function PostsPage() {
   const { s, mutate, toast, log, publish } = useStore();
   const { go } = useNav();
   const me = useMe();
+  // Vendeur (compte employé) : stock et disponibilité seulement
+  const stockOnly = s.me?.role !== "admin" && me.ownerId !== s.me?.id && myStaffRow(s, me.id)?.role === "seller";
   const plan = planById(me.plan);
   const [tab, setTab] = useState("all");
   const [del, setDel] = useState<Product | null>(null);
@@ -204,7 +206,7 @@ export function PostsPage() {
     <div className="page">
       <div className="page-head">
         <div><h1 className="page-title">Mes publications</h1><p className="muted">{plan.quota ? `${Math.max(0, quotaLeft)} publication(s) restante(s) ce mois-ci sur votre forfait ${plan.name}` : `Publications illimitées avec le forfait ${plan.name}`}</p></div>
-        <div className="row"><Btn variant="outline" icon={isResto(me) ? UtensilsCrossed : Flame} onClick={() => go("publish", { deal: 1 })}>{isResto(me) ? "Nouvelle offre" : "Créer une promo"}</Btn><Btn icon={Plus} onClick={() => go("publish")}>Nouvel arrivage</Btn></div>
+        {!stockOnly && <div className="row"><Btn variant="outline" icon={isResto(me) ? UtensilsCrossed : Flame} onClick={() => go("publish", { deal: 1 })}>{isResto(me) ? "Nouvelle offre" : "Créer une promo"}</Btn><Btn icon={Plus} onClick={() => go("publish")}>Nouvel arrivage</Btn></div>}
       </div>
       <Segmented value={tab} onChange={setTab} options={[{ v: "all", l: `Toutes (${counts.all})` }, { v: "published", l: `En ligne (${counts.published})` }, { v: "scheduled", l: `Programmées (${counts.scheduled})` }, { v: "draft", l: `Brouillons (${counts.draft})` }, { v: "hidden", l: `Masquées (${counts.hidden})` }]} />
       <div className="posts">
@@ -216,7 +218,7 @@ export function PostsPage() {
               <div className="post-title"><strong>{p.name}</strong>{p.sponsored && <span className="sponso sponso-inline">Sponsorisé</span>}{p.deal && <span className={cx("pill pill-sm deal-pill", dealState(p) === "upcoming" && "is-soon", dealState(p) === "ended" && "is-ended")}><Flame size={11} />{dealTitle(p)}{dealBadge(p) && dealBadge(p) !== dealKind(p.deal.kind).short ? ` · ${dealBadge(p)}` : ""} · {dealState(p) === "ended" ? "terminée" : dealWhen(p).toLowerCase()}</span>}</div>
               <div className="post-meta">
                 <StatePill state={p.state} />
-                <StatusPill status={p.status} small />
+                <StatusPill status={p.status} at={p.arrivedAt} small />
                 <span>{fmtXPF(p.price)}</span>
                 {p.qty != null && <span>{p.qty} en stock</span>}
                 <span className="muted">{p.state === "scheduled" && p.scheduledAt ? `Prévue le ${new Date(p.scheduledAt).toLocaleString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}` : `Mise à jour ${fmtRel(p.updatedAt)}`}</span>
@@ -224,16 +226,18 @@ export function PostsPage() {
               </div>
             </div>
             <div className="post-actions">
-              {(p.state === "draft" || p.state === "scheduled") && <Btn size="sm" icon={Send} onClick={() => publishNow(p)}>Publier</Btn>}
+              {!stockOnly && (p.state === "draft" || p.state === "scheduled") && <Btn size="sm" icon={Send} onClick={() => publishNow(p)}>Publier</Btn>}
               {p.state === "published" && p.status !== "limited" && p.status !== "out" && <Btn size="sm" variant="outline" icon={Zap} onClick={() => upd(p.id, (x) => (x.status = "limited"), "Passé en stock limité")}>Stock limité</Btn>}
               {p.state === "published" && p.status !== "out" && <Btn size="sm" variant="outline" icon={Ban} onClick={() => upd(p.id, (x) => (x.status = "out"), "Passé en rupture de stock")}>Rupture</Btn>}
               {p.state === "published" && (p.status === "out" || p.status === "limited") && <Btn size="sm" variant="outline" icon={RotateCcw} onClick={() => upd(p.id, (x) => { x.status = "restock"; x.arrivedAt = new Date().toISOString(); }, "Marqué comme réapprovisionné")}>Réappro.</Btn>}
-              {plan.can.sponsored && p.state === "published" && <Btn size="sm" variant="ghost" icon={Megaphone} onClick={() => upd(p.id, (x) => (x.sponsored = !x.sponsored), p.sponsored ? "Mise en avant retirée" : "Publication sponsorisée (simulation, sans paiement)")}>{p.sponsored ? "Retirer" : "Sponsoriser"}</Btn>}
-              {p.state === "published" && !p.deal && <Btn size="sm" variant="outline" icon={Flame} onClick={() => go("publish", { id: p.id, deal: 1 })}>Mettre en promo</Btn>}
-              {p.deal && dealState(p) === "ended" && <Btn size="sm" variant="outline" icon={RotateCcw} onClick={() => go("publish", { id: p.id, deal: 1, renew: 1 })}>Relancer</Btn>}
+              {!stockOnly && plan.can.sponsored && p.state === "published" && <Btn size="sm" variant="ghost" icon={Megaphone} onClick={() => upd(p.id, (x) => (x.sponsored = !x.sponsored), p.sponsored ? "Mise en avant retirée" : "Publication sponsorisée (simulation, sans paiement)")}>{p.sponsored ? "Retirer" : "Sponsoriser"}</Btn>}
+              {!stockOnly && p.state === "published" && !p.deal && <Btn size="sm" variant="outline" icon={Flame} onClick={() => go("publish", { id: p.id, deal: 1 })}>Mettre en promo</Btn>}
+              {!stockOnly && p.deal && dealState(p) === "ended" && <Btn size="sm" variant="outline" icon={RotateCcw} onClick={() => go("publish", { id: p.id, deal: 1, renew: 1 })}>Relancer</Btn>}
+              {!stockOnly && <>
               <IconBtn icon={Pencil} label="Modifier" onClick={() => go("publish", { id: p.id })} />
               <IconBtn icon={Copy} label="Dupliquer" onClick={() => duplicate(p)} />
               <IconBtn icon={Trash2} label="Supprimer" onClick={() => setDel(p)} />
+              </>}
             </div>
           </div>
         ))}
@@ -382,7 +386,7 @@ export function PublishPage({ params }: any) {
     go("posts");
   };
 
-  const example = () => setF({ ...f, name: "GTA VI — édition standard PS5", category: "gaming", brand: "Rockstar Games", description: "Premier arrivage du jeu en version PS5, boîte française. Réservation conseillée.", price: "9990", qty: "24", status: "today", tags: "gta, gta vi, ps5, jeu vidéo", arrived: todayStr() });
+  const example = () => setF({ ...f, name: "GTA VI — édition standard PS5", category: "gaming", brand: "Rockstar Games", description: "Premier arrivage du jeu en version PS5, boîte française. Quantités limitées.", price: "9990", qty: "24", status: "today", tags: "gta, gta vi, ps5, jeu vidéo", arrived: todayStr() });
 
   const preview: Product = { ...build(), price: Number(f.price) || 0, name: f.name || "Nom du produit", brand: f.brand || "Marque", state: "published" } as Product;
   const minSched = new Date(Date.now() + 60e3 - new Date().getTimezoneOffset() * 60e3).toISOString().slice(0, 16);
@@ -677,6 +681,8 @@ export function PlansPage({ merchantId, admin }: { merchantId?: string; admin?: 
           <div><h1 className="page-title">Forfaits professionnels</h1><p className="muted">Gratuit pour les consommateurs, financé par les commerçants. Choisissez un forfait : l'équipe ARRIVAGE vous contacte pour l'activer.</p></div>
         </div>
       )}
+      {!admin && m.planRequest && m.planRequest !== m.plan && <div className="banner-info"><Info size={16} /> Demande de passage au forfait {planById(m.planRequest).name} envoyée{m.planRequestAt ? " " + fmtRel(m.planRequestAt) : ""}. L'équipe ARRIVAGE vous contacte pour l'activer.</div>}
+      {!admin && !m.planRequest && m.planRequestNote && <div className="banner-warn"><Info size={16} /> Votre dernière demande de forfait n'a pas été retenue : {m.planRequestNote}. Écrivez à contact@arrivagenc.com pour en parler.</div>}
       <div className="plans">
         {PLANS.map((p) => {
           const current = m.plan === p.id;
@@ -707,7 +713,7 @@ export function PlansPage({ merchantId, admin }: { merchantId?: string; admin?: 
           {admin || !planById(pick).price ? null : <div className="banner-info"><Info size={16} /> Aucun paiement en ligne : votre demande est transmise à l'équipe ARRIVAGE, qui vous contacte pour l'activation et la facturation.</div>}
           <div className="row-end"><Btn variant="ghost" onClick={() => setPick(null)}>Annuler</Btn><Btn onClick={() => {
             const direct = admin || s.me?.role === "admin";
-            mutate((d) => { const x = d.merchants.find((y) => y.id === m.id)!; const old = x.plan; if (direct) { x.plan = pick; x.planRequest = null; if (pick !== "premium") d.products.forEach((p) => { if (p.merchantId === m.id) p.sponsored = false; }); } else x.planRequest = pick; log(d, direct ? `${m.name} : forfait ${planById(old).name} → ${planById(pick).name}` : `${m.name} demande le forfait ${planById(pick).name}`, direct ? "admin" : "commerçant"); });
+            mutate((d) => { const x = d.merchants.find((y) => y.id === m.id)!; const old = x.plan; if (direct) { x.plan = pick; x.planRequest = null; x.planRequestAt = null; if (pick !== "premium") d.products.forEach((p) => { if (p.merchantId === m.id) p.sponsored = false; }); } else { x.planRequest = pick; x.planRequestAt = new Date().toISOString(); x.planRequestNote = null; } log(d, direct ? `${m.name} : forfait ${planById(old).name} → ${planById(pick).name}` : `${m.name} demande le forfait ${planById(pick).name}`, direct ? "admin" : "commerçant"); });
             toast(direct ? `Forfait ${planById(pick).name} activé` : `Demande envoyée : l'équipe ARRIVAGE vous recontacte`); setPick(null);
           }}>{admin || s.me?.role === "admin" ? "Confirmer le changement" : "Envoyer la demande"}</Btn></div>
         </>}

@@ -17,7 +17,7 @@ const html=`<!doctype html>
 <meta name="robots" content="noindex, nofollow">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>ARRIVAGE · Tout ce qui débarque, au même endroit</title>
-<meta name="description" content="ARRIVAGE : les arrivages des commerces de Nouvelle-Calédonie, alertes produits, réservation en magasin.">
+<meta name="description" content="ARRIVAGE : les arrivages des commerces de Nouvelle-Calédonie : qui a quoi, où et à quel prix, alertes produits et promos.">
 <meta name="theme-color" content="#203C31">
 <meta property="og:title" content="ARRIVAGE">
 <meta property="og:description" content="Tout ce qui débarque en Nouvelle-Calédonie, au même endroit.">

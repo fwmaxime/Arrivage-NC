@@ -105,15 +105,18 @@ export function alertMatches(a: Alert, p: Product, m?: Merchant) {
 
 // Qui peut écrire quoi (miroir des règles du serveur, pour éviter des envois refusés)
 function owns(s: State, mid: string) { return !!s.me && s.merchants.some((m) => m.id === mid && (m as any).ownerId === s.me!.id); }
+// Comptes employés : la fiche « staff » active de la personne connectée pour ce commerce (rôle gérant ou vendeur)
+export function myStaffRow(s: State, mid: string): Staff | undefined { return s.me ? s.staff.find((x) => x.merchantId === mid && x.userId === s.me!.id && x.status === "active") : undefined; }
+const manages = (s: State, mid: string) => owns(s, mid) || myStaffRow(s, mid)?.role === "manager";
 function canWrite(s: State, c: Coll, row: any): boolean {
   const me = s.me; if (!me) return false;
   const admin = me.role === "admin";
   switch (c) {
-    case "merchants": return admin || row.ownerId === me.id;
-    case "products": return admin || owns(s, row.merchantId);
-    case "reservations": return admin || row.buyerId === me.id || owns(s, row.merchantId);
-    case "reviews": return admin || row.authorId === me.id || owns(s, row.merchantId);
-    case "reports": { const p = s.products.find((x) => x.id === row.productId); return admin || row.reporterId === me.id || (!!p && owns(s, p.merchantId)); }
+    case "merchants": return admin || row.ownerId === me.id || myStaffRow(s, row.id)?.role === "manager";
+    case "products": return admin || manages(s, row.merchantId) || !!myStaffRow(s, row.merchantId);
+    case "reservations": return admin || row.buyerId === me.id || manages(s, row.merchantId);
+    case "reviews": return admin || row.authorId === me.id || manages(s, row.merchantId);
+    case "reports": { const p = s.products.find((x) => x.id === row.productId); return admin || row.reporterId === me.id || (!!p && manages(s, p.merchantId)); }
     case "staff": return admin || owns(s, row.merchantId);
     case "activity": return true;
   }
@@ -121,7 +124,8 @@ function canWrite(s: State, c: Coll, row: any): boolean {
 
 export function myId(s: State) { return s.me?.id || "anonyme"; }
 export const isAdmin = (s: State) => s.me?.role === "admin";
-export const myMerchants = (s: State) => s.me ? s.merchants.filter((m) => (m as any).ownerId === s.me!.id) : [];
+// Commerces que la personne connectée gère : les siens, et ceux où elle est employée (invitation acceptée)
+export const myMerchants = (s: State) => s.me ? s.merchants.filter((m) => (m as any).ownerId === s.me!.id || !!myStaffRow(s, m.id)) : [];
 
 export interface DemandRaw { alerts: { q: string; c: string; b: number | null; m: string | null }[]; searches: Record<string, number>; prev: Record<string, number>; users: number }
 
@@ -142,6 +146,7 @@ interface Ctx {
   requireAccount: (reason: string) => boolean;
   signIn: (id: string, pw: string) => Promise<string | null>;
   signUp: (email: string, pw: string, name: string) => Promise<{ error: string | null; confirm?: boolean }>;
+  deleteAccount: () => Promise<string | null>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<string | null>;
   updatePassword: (pw: string) => Promise<string | null>;
@@ -211,6 +216,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     const settings = { manualApproval: true, moderateReviews: true, ...(cfg.settings || {}) };
     const categories = CATEGORIES.map((c) => ({ id: c.id, active: (cfg.categories || []).find((x: any) => x.id === c.id)?.active ?? true }));
     syncedCfg.current = stable({ settings, categories });
+    lastSync.current = new Date(Date.now() - 120000).toISOString();
+    if (me) setTimeout(() => migratePhotos(), 3000);
 
     setS((prev) => {
       let next: State = { ...prev, merchants, products, reviews, reservations, reports, staff, activity, users, settings, categories, me, ready: true };
@@ -233,7 +240,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       for (const p of next.products) synced.current.products.set(p.id, stable(p));
       for (const m of next.merchants) synced.current.merchants.set(m.id, stable(m));
       // commerce courant
-      const mine = me ? next.merchants.filter((m) => (m as any).ownerId === me.id) : [];
+      const mine = me ? myMerchants({ ...next, me }) : [];
       if (me && !(me.role === "admin" ? next.merchants : mine).some((m) => m.id === next.currentMerchant)) next.currentMerchant = (mine[0] || (me.role === "admin" ? next.merchants[0] : undefined))?.id || "";
       // arrivages programmés arrivés à échéance
       next.products = next.products.map((p) => p.state === "scheduled" && p.scheduledAt && new Date(p.scheduledAt).getTime() <= Date.now() ? { ...p, state: "published", publishedAt: p.scheduledAt, scheduledAt: null } : p);
@@ -313,7 +320,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     const tb = setInterval(checkBlocked, 20000);
     document.addEventListener("visibilitychange", checkBlocked);
     // rafraîchissement régulier (nouvelles réservations, signalements…)
-    const t = setInterval(() => { if (document.visibilityState === "visible" && cur.current.me) loadAll(cur.current.me); }, 90000);
+    // Rafraîchissement : léger toutes les 90 s (lignes modifiées seulement), complet toutes les 15 min
+    let ticks = 0;
+    const t = setInterval(() => {
+      if (document.visibilityState !== "visible" || !cur.current.me) return;
+      ticks++;
+      if (ticks % 10 === 0) loadAll(cur.current.me); else refresh();
+    }, 90000);
     return () => { sub.subscription.unsubscribe(); clearInterval(t); clearInterval(tb); document.removeEventListener("visibilitychange", checkBlocked); };
   }, []);
 
@@ -394,16 +407,72 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     sb?.rpc("bump", { t, rid, field, delta, com: cur.current.profile.commune || "" }).then(({ error }) => { if (error) console.warn("bump", error.message); });
   }
   async function push(c: Coll, rows: any[]) {
+    const orig = rows;
+    // Photos : une image encore en texte (data:…) est d'abord envoyée dans le stockage Supabase, la fiche ne garde que son adresse.
+    if (c === "products" || c === "merchants") {
+      try { rows = await Promise.all(rows.map((r) => withStoredPhotos(c, r))); }
+      // stockage pas encore prêt (script photos.sql non lancé) : on garde l'ancienne méthode, la photo reste dans la fiche
+      catch (e: any) { warn("photos: " + (e?.message || e)); storageOff = true; rows = orig; }
+    }
     const payload = rows.map((r) => ({ id: r.id, data: r }));
     const q = c === "activity" ? sb!.from(c).insert(payload) : sb!.from(c).upsert(payload).select("id,data");
     const { data, error } = await (q as any);
     if (error) { warn(`${c}: ${error.message}`); return; }
     if (c === "activity" || !data) return;
     // le serveur a pu corriger des champs protégés (statut, forfait, compteurs…)
-    const fixed = (data as any[]).map((x) => ({ ...x.data, id: x.id })).filter((x) => stable(x) !== stable(rows.find((r) => r.id === x.id)));
+    const fixed = (data as any[]).map((x) => ({ ...x.data, id: x.id })).filter((x) => stable(x) !== stable(orig.find((r) => r.id === x.id)));
     if (!fixed.length) return;
     for (const x of fixed) synced.current[c].set(x.id, stable(x));
     setS((prev) => ({ ...prev, [c]: (prev as any)[c].map((r: any) => fixed.find((x) => x.id === r.id) || r) }));
+  }
+
+  // Migration douce : les anciennes photos enregistrées en texte sont envoyées dans le stockage
+  // par le premier compte autorisé qui ouvre le site (le commerçant, un gérant ou un admin).
+  const migrating = useRef(false);
+  async function migratePhotos() {
+    const st = cur.current;
+    if (migrating.current || storageOff || !sb || !st.me) return;
+    migrating.current = true;
+    try {
+      for (const c of ["products", "merchants"] as const) {
+        const rows = (st as any)[c].filter((r: any) => hasInlinePhoto(r) && canWrite(st, c, r));
+        for (let i = 0; i < rows.length; i += 5) await push(c, rows.slice(i, i + 5));
+      }
+    } finally { migrating.current = false; }
+  }
+
+  // Rafraîchissement léger : seulement les lignes modifiées depuis la dernière fois (+ la liste des identifiants pour voir les suppressions)
+  const lastSync = useRef<string>("");
+  async function refresh() {
+    const me = cur.current.me;
+    if (!sb || !me || !lastSync.current) return;
+    const since = lastSync.current;
+    const started = new Date(Date.now() - 120000).toISOString();
+    for (const c of ["merchants", "products", "reviews", "reservations", "reports", "staff"] as const) {
+      const [chg, ids] = await Promise.all([
+        sb.from(c).select("id,data").gt("updated_at", since).limit(2000),
+        sb.from(c).select("id").limit(10000),
+      ]);
+      if (chg.error || ids.error) continue;
+      const alive = new Set((ids.data || []).map((x: any) => x.id));
+      const rows = (chg.data || []).map((r: any) => ({ ...r.data, id: r.id }));
+      setS((prev) => {
+        const map = synced.current[c] || (synced.current[c] = new Map());
+        // retirées sur le serveur (sauf créations locales pas encore envoyées)
+        let list: any[] = (prev as any)[c].filter((r: any) => alive.has(r.id) || !map.has(r.id));
+        for (const id of Array.from(map.keys())) if (!alive.has(id)) map.delete(id);
+        for (let r of rows) {
+          if (c === "products" && prev.favorites.includes(r.id) && r.favBase > 0) r = { ...r, favBase: r.favBase - 1 };
+          if (c === "merchants" && prev.follows.includes(r.id) && r.followersBase > 0) r = { ...r, followersBase: r.followersBase - 1 };
+          const i = list.findIndex((x) => x.id === r.id);
+          if (i >= 0 && stable(list[i]) !== map.get(r.id)) continue; // modification locale en cours d'envoi : elle gagne
+          map.set(r.id, stable(r));
+          if (i >= 0) list[i] = r; else list = [r, ...list];
+        }
+        return { ...prev, [c]: list };
+      });
+    }
+    lastSync.current = started;
   }
 
   const log = (d: State, text: string, space: Activity["space"]) => {
@@ -462,6 +531,18 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setS((x) => ({ ...mergeUser({ ...x, me: null }, null) }));
     toast("Vous êtes déconnecté", "info");
   };
+  // Suppression définitive du compte (fonction delete_my_account, script supabase/compte.sql)
+  const deleteAccount = async () => {
+    if (!sb || !cur.current.me) return "Service indisponible.";
+    clearTimeout(userTimer.current);
+    const { error } = await sb.rpc("delete_my_account");
+    if (error) return /could not find|does not exist|schema cache/i.test(error.message) ? "La suppression de compte n'est pas encore activée. Écrivez à contact@arrivagenc.com." : error.message;
+    try { localStorage.removeItem(LOCAL_KEY); } catch {}
+    await sb.auth.signOut({ scope: "local" }).catch(() => {});
+    setS((x) => ({ ...mergeUser({ ...x, me: null }, null) }));
+    toast("Votre compte et vos données ont été supprimés", "info");
+    return null;
+  };
   const resetPassword = async (email: string) => {
     if (!sb) return "Service indisponible.";
     const { error } = await sb.auth.resetPasswordForEmail(email.trim().toLowerCase(), { redirectTo: location.origin + location.pathname });
@@ -493,8 +574,29 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   };
   const reload = async () => { await loadAll(cur.current.me); };
 
-  return <C.Provider value={{ s, storageOk, mutate, toast, toasts, log, publish, online: !!sb, auth, openAuth, closeAuth, requireAccount, signIn, signUp, signOut, resetPassword, updatePassword, updateName, demand, merchantStats, reload }}>{children}</C.Provider>;
+  return <C.Provider value={{ s, storageOk, mutate, toast, toasts, log, publish, online: !!sb, auth, openAuth, closeAuth, requireAccount, signIn, signUp, signOut, deleteAccount, resetPassword, updatePassword, updateName, demand, merchantStats, reload }}>{children}</C.Provider>;
 }
 
 export const newId = uid;
+
+// ---- Photos dans le stockage Supabase (bucket « photos ») ----
+const isInline = (v: any) => typeof v === "string" && v.startsWith("data:image/");
+export const hasInlinePhoto = (r: any) => (Array.isArray(r.images) && r.images.some(isInline)) || isInline(r.logo);
+let storageOff = false;
+async function uploadPhoto(folder: string, dataUrl: string): Promise<string> {
+  const blob = await (await fetch(dataUrl)).blob();
+  const ext = blob.type === "image/png" ? "png" : blob.type === "image/webp" ? "webp" : "jpg";
+  const path = `${folder}/${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}.${ext}`;
+  const { error } = await sb!.storage.from("photos").upload(path, blob, { contentType: blob.type || "image/jpeg", cacheControl: "31536000", upsert: false });
+  if (error) throw new Error(error.message);
+  return sb!.storage.from("photos").getPublicUrl(path).data.publicUrl;
+}
+async function withStoredPhotos(c: "products" | "merchants", r: any) {
+  if (storageOff || !hasInlinePhoto(r)) return r;
+  const folder = c === "products" ? r.merchantId : r.id;
+  const out = { ...r };
+  if (Array.isArray(r.images)) out.images = await Promise.all(r.images.map((x: string) => (isInline(x) ? uploadPhoto(folder, x) : x)));
+  if (isInline(r.logo)) out.logo = await uploadPhoto(folder, r.logo);
+  return out;
+}
 export { COMMUNES };

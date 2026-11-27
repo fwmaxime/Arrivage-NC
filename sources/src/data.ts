@@ -44,6 +44,24 @@ export const STATUSES: { id: Status; label: string }[] = [
 ];
 export const statusLabel = (s: string) => STATUSES.find((x) => x.id === s)?.label || s;
 
+// Statuts qui vieillissent tout seuls : « Arrivé aujourd'hui » devient « Arrivé hier », « Arrivé il y a 3 jours »…
+// Calculé à l'affichage à partir de la date d'arrivage : rien à faire côté commerçant ni côté serveur.
+const dayStart = (d: Date) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x.getTime(); };
+export const daysSince = (iso: string) => Math.round((dayStart(new Date()) - dayStart(new Date(iso))) / 864e5);
+const ago = (n: number) => n <= 0 ? "aujourd'hui" : n === 1 ? "hier" : n < 7 ? `il y a ${n} jours` : n < 30 ? `il y a ${Math.floor(n / 7)} semaine${n >= 14 ? "s" : ""}` : n < 365 ? `il y a ${Math.floor(n / 30)} mois` : "il y a plus d'un an";
+// Statut réel du moment (pour les filtres et les couleurs) : un arrivage « du jour » devient « nouvel arrivage » dès le lendemain.
+export const liveStatus = (p: { status: Status; arrivedAt: string }): Status => (p.status === "today" && daysSince(p.arrivedAt) >= 1 ? "new" : p.status);
+export function statusText(status: string, arrivedAt?: string) {
+  if (!arrivedAt || isNaN(+new Date(arrivedAt))) return statusLabel(status);
+  const n = daysSince(arrivedAt);
+  switch (status) {
+    case "today": case "new": return n <= 0 ? "Arrivé aujourd'hui" : "Arrivé " + ago(n);
+    case "restock": return n <= 0 ? "Réassort aujourd'hui" : "Réassort " + ago(n);
+    case "soon": return n === 0 ? "Arrive aujourd'hui" : n === -1 ? "Arrive demain" : n < 0 ? `Arrive dans ${-n} jours` : "Arrivage annoncé, à confirmer";
+    default: return statusLabel(status);
+  }
+}
+
 export type PlanId = "free" | "starter" | "business" | "premium";
 export const PLANS: {
   id: PlanId; name: string; price: number; quota: number | null; tagline: string; features: string[];
@@ -68,7 +86,7 @@ export interface Merchant {
   id: string; name: string; tagline: string; description: string; commune: string; address: string;
   hours: string[]; phone: string; email: string; categories: CategoryId[]; color: string; ink: string;
   shape: "round" | "square" | "pill"; plan: PlanId; status: "active" | "suspended" | "pending" | "rejected"; verified: boolean; siret?: string; contactName?: string; appliedAt?: string; rejectReason?: string; source?: "inscription" | "admin";
-  followersBase: number; joinedAt: string; addressVerified: boolean; stores: string[]; logo?: string; ownerId?: string; planRequest?: PlanId | null;
+  followersBase: number; joinedAt: string; addressVerified: boolean; stores: string[]; logo?: string; ownerId?: string; planRequest?: PlanId | null; planRequestAt?: string | null; planRequestNote?: string | null;
   shopUrl?: string; // boutique en ligne ou page de paiement par défaut du commerçant
 }
 
@@ -107,3 +125,8 @@ export const norm = (s: string) => (s || "").toLowerCase().normalize("NFD").repl
 // Lien d'achat sûr (https uniquement) : celui du produit, sinon celui du commerce
 export const safeUrl = (u?: string) => { const x = (u || "").trim(); try { const url = new URL(x); return url.protocol === "https:" ? url.href : ""; } catch { return ""; } };
 export const buyLink = (p: { buyUrl?: string; tryOn?: boolean }, m?: { shopUrl?: string }) => p.tryOn ? "" : safeUrl(p.buyUrl) || safeUrl(m?.shopUrl);
+
+// Demandes de changement de forfait en attente (commerces actifs ou suspendus) : listées ici et comptées dans la pastille « Commerçants »
+export const planRequests = (list: Merchant[]): Merchant[] => list.filter((m) => m.planRequest && m.planRequest !== m.plan && (m.status === "active" || m.status === "suspended"))
+  .sort((a, b) => +new Date(a.planRequestAt || 0) - +new Date(b.planRequestAt || 0));
+

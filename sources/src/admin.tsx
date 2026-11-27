@@ -5,12 +5,31 @@ import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, AreaChart, Area, XAx
 import { Users, Store, Package, BellRing, Search, Wallet, Flag, Check, Ban, Eye, EyeOff, Star, Trash2, ShieldCheck, Activity as ActIcon, Megaphone, RotateCcw, Info, Calculator } from "lucide-react";
 import { DemandRaw, useStore } from "./store";
 import { useNav } from "./nav";
-import { CATEGORIES, PLANS, planById, catById, fmtXPF, fmtNum, fmtRel, norm } from "./data";
+import { CATEGORIES, PLANS, planById, catById, fmtXPF, fmtNum, fmtRel, norm, planRequests } from "./data";
 import { Btn, IconBtn, Stat, Segmented, StatusPill, ProductVisual, MerchantLogo, Empty, DemoTag, cx, Confirm, Chip } from "./ui";
 import { StatePill } from "./merchant";
 
 const tipStyle = { background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 10, fontSize: 12, color: "var(--fg)" };
 const PCOL: Record<string, string> = { free: "#D9D4C7", starter: "var(--ch-c)", business: "var(--c1)", premium: "var(--ch-acc)" };
+
+// « À traiter » : tout ce qui attend une action de l'équipe, en un coup d'œil
+function ToDo() {
+  const { s } = useStore();
+  const { go } = useNav();
+  const items = [
+    { n: s.merchants.filter((m) => m.status === "pending").length, l: "inscription(s) de commerce à valider", run: () => go("merchants", { tab: "pending" }) },
+    { n: planRequests(s.merchants).length, l: "demande(s) de forfait à traiter", run: () => go("merchants", { tab: "plans" }) },
+    { n: s.reports.filter((r) => r.status === "open" || r.status === "fixed").length, l: "signalement(s) ouvert(s)", run: () => go("reports") },
+    { n: s.reviews.filter((r) => r.status === "pending").length, l: "avis à modérer", run: () => go("reviews") },
+  ].filter((x) => x.n > 0);
+  if (!items.length) return <div className="todo-card is-empty"><Check size={16} /> Rien à traiter pour le moment.</div>;
+  return (
+    <div className="todo-card">
+      <strong>À traiter</strong>
+      <div className="todo-list">{items.map((x) => <button key={x.l} className="todo-item" onClick={x.run}><b>{x.n}</b> {x.l}<span aria-hidden>›</span></button>)}</div>
+    </div>
+  );
+}
 
 export function AdminOverview() {
   const { s } = useStore();
@@ -40,6 +59,7 @@ export function AdminOverview() {
         <Btn icon={Calculator} variant="outline" onClick={() => go("finance")}>Ouvrir le simulateur</Btn>
       </div>
       <StandbyCard />
+      <ToDo />
       <div className="stats">
         <Stat icon={Users} label="Utilisateurs" value={fmtNum(usersBase)} sub="Comptes créés" />
         <Stat icon={Store} label="Commerçants inscrits" value={fmtNum(registered.length)} sub={`${active.length} actifs · ${registered.length - active.length} suspendu(s) · ${pendingN} en attente`} />
@@ -114,7 +134,7 @@ export function AdminMerchants({ embedded }: { embedded?: boolean }) {
               <tr key={m.id} className={cx(m.status !== "active" && "is-muted")}>
                 <td><button className="cell-id cell-link" onClick={() => go("merchant", { id: m.id })} title="Voir la fiche détaillée"><MerchantLogo m={m} size={30} /><div><strong>{m.name}</strong><span className="muted small">inscrit le {new Date(m.joinedAt).toLocaleDateString("fr-FR")}</span></div></button></td>
                 <td>{m.commune}</td>
-                <td><select id={"pl-" + m.id} className="select select-sm" value={m.plan} onChange={(e) => upd(m.id, (x) => { x.plan = e.target.value; x.planRequest = null; }, `${m.name} : forfait ${planById(e.target.value).name} (admin)`)} aria-label="Forfait">{PLANS.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select>{m.planRequest && m.planRequest !== m.plan && <div className="micro warn-txt">Demande : {planById(m.planRequest).name}</div>}</td>
+                <td><select id={"pl-" + m.id} className="select select-sm" value={m.plan} onChange={(e) => upd(m.id, (x) => { x.plan = e.target.value; x.planRequest = null; x.planRequestAt = null; }, `${m.name} : forfait ${planById(e.target.value).name} (admin)`)} aria-label="Forfait">{PLANS.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select>{m.planRequest && m.planRequest !== m.plan && <div className="micro warn-txt">Demande : {planById(m.planRequest).name}</div>}</td>
                 <td>{s.products.filter((p) => p.merchantId === m.id && p.state === "published").length}</td>
                 <td>{(() => { const rs = s.reservations.filter((r) => r.merchantId === m.id); const v = rs.filter((r) => r.status !== "cancelled" && r.status !== "refunded").reduce((a, r) => a + r.total, 0); return rs.length ? <div className="cell-stack"><b>{rs.length}</b><span className="muted small">{fmtXPF(v)}</span></div> : <span className="muted">0</span>; })()}</td>
                 <td><button className={cx("tgl", m.verified && "is-on")} onClick={() => upd(m.id, (x) => (x.verified = !x.verified), `${m.name} ${m.verified ? "n'est plus vérifié" : "vérifié"}`)}>{m.verified ? <><ShieldCheck size={14} /> Vérifié</> : "Non vérifié"}</button></td>
@@ -186,7 +206,7 @@ export function AdminPosts() {
               <span className="post-thumb"><ProductVisual p={p} /></span>
               <div className="post-main">
                 <div className="post-title"><strong>{p.name}</strong>{p.featured && <span className="pill pill-sm pill-orange"><i />À la une</span>}{p.sponsored && <span className="sponso sponso-inline">Sponsorisé</span>}</div>
-                <div className="post-meta"><StatePill state={p.state} /><StatusPill status={p.status} small /><span>{m?.name}</span><span>{fmtXPF(p.price)}</span><span className="muted">{catById(p.category).label}</span></div>
+                <div className="post-meta"><StatePill state={p.state} /><StatusPill status={p.status} at={p.arrivedAt} small /><span>{m?.name}</span><span>{fmtXPF(p.price)}</span><span className="muted">{catById(p.category).label}</span></div>
               </div>
               <div className="post-actions">
                 {p.state !== "hidden" ? <Btn size="sm" variant="outline" icon={EyeOff} onClick={() => upd(p.id, (x) => (x.state = "hidden"), `Publication masquée : « ${p.name} »`)}>Masquer</Btn>

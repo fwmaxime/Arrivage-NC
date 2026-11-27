@@ -1,8 +1,9 @@
 import React, { useState } from "react";
+import { toHash } from "./url";
 import { Plus, Check, X, Store, Info, Clock, ShieldCheck, UserPlus, Phone, Mail, MapPin, ChevronLeft } from "lucide-react";
 import { useStore, newId } from "./store";
 import { useNav } from "./nav";
-import { CATEGORIES, COMMUNES, PLANS, planById, fmtRel, Merchant, PlanId } from "./data";
+import { CATEGORIES, COMMUNES, PLANS, planById, fmtRel, Merchant, PlanId, planRequests } from "./data";
 import { Btn, Segmented, MerchantLogo, Empty, Modal, Field, Chip, cx } from "./ui";
 import { AdminMerchants } from "./admin";
 import { NeedAccount } from "./auth";
@@ -60,9 +61,9 @@ function MerchantFields({ f, setF, err, admin }: { f: F; setF: (f: F) => void; e
 }
 
 // ---------- Admin ----------
-export function AdminMerchantsPage() {
+export function AdminMerchantsPage({ params }: { params?: any }) {
   const { s, mutate, toast, log } = useStore();
-  const [tab, setTab] = useState("accounts");
+  const [tab, setTab] = useState<string>(params?.tab || "accounts");
   const [adding, setAdding] = useState(false);
   const [f, setF] = useState<F>(blank());
   const [err, setErr] = useState<Record<string, string>>({});
@@ -72,6 +73,18 @@ export function AdminMerchantsPage() {
   const pending = s.merchants.filter((m) => m.status === "pending").sort((a, b) => +new Date(b.appliedAt || 0) - +new Date(a.appliedAt || 0));
   const rejected = s.merchants.filter((m) => m.status === "rejected");
   const accounts = s.merchants.filter((m) => m.status === "active" || m.status === "suspended");
+  const requests = planRequests(s.merchants);
+  const [refuse, setRefuse] = useState<Merchant | null>(null);
+  const acceptPlan = (m: Merchant) => {
+    const to = m.planRequest!;
+    mutate((d) => { const x = d.merchants.find((y) => y.id === m.id)!; const old = x.plan; x.plan = to; x.planRequest = null; x.planRequestAt = null; x.planRequestNote = null; if (to !== "premium") d.products.forEach((p) => { if (p.merchantId === m.id) p.sponsored = false; }); log(d, `Demande de forfait acceptée : ${m.name} passe de ${planById(old).name} à ${planById(to).name}`, "admin"); });
+    toast(`${m.name} passe au forfait ${planById(to).name}`);
+  };
+  const doRefuse = () => {
+    if (!refuse) return;
+    mutate((d) => { const x = d.merchants.find((y) => y.id === refuse.id)!; log(d, `Demande de forfait refusée : ${refuse.name} (${planById(x.planRequest || "free").name})${reason.trim() ? " : " + reason.trim() : ""}`, "admin"); x.planRequestNote = reason.trim() || "Demande non retenue"; x.planRequest = null; x.planRequestAt = null; });
+    toast(`Demande de ${refuse.name} refusée`); setRefuse(null); setReason("");
+  };
 
   const create = () => {
     const e = validate(f, s.merchants); setErr(e);
@@ -81,8 +94,8 @@ export function AdminMerchantsPage() {
     toast(`${m.name} ajouté et visible dans l'annuaire`); setAdding(false); setF(blank()); setTab("accounts");
   };
   const approve = (m: Merchant) => {
-    const plan = approvePlan[m.id] || m.plan;
-    mutate((d) => { const x = d.merchants.find((y) => y.id === m.id)!; x.status = "active"; x.verified = true; x.plan = plan; x.joinedAt = new Date().toISOString().slice(0, 10); log(d, `Inscription validée : ${m.name} (${planById(plan).name})`, "admin"); });
+    const plan = approvePlan[m.id] || m.planRequest || m.plan;
+    mutate((d) => { const x = d.merchants.find((y) => y.id === m.id)!; x.status = "active"; x.verified = true; x.plan = plan; x.planRequest = null; x.planRequestAt = null; x.joinedAt = new Date().toISOString().slice(0, 10); log(d, `Inscription validée : ${m.name} (${planById(plan).name})`, "admin"); });
     toast(`${m.name} validé : le commerce apparaît dans l'annuaire`);
   };
   const doReject = () => {
@@ -103,7 +116,7 @@ export function AdminMerchantsPage() {
         <div><strong>Validation manuelle des inscriptions</strong><span className="muted small">{s.settings.manualApproval ? "Chaque nouvelle inscription attend votre accord avant d'apparaître sur ARRIVAGE." : "Les nouvelles inscriptions sont publiées immédiatement, sans contrôle."}</span></div>
         <label className="switch-row"><input type="checkbox" checked={s.settings.manualApproval} onChange={() => { mutate((d) => { d.settings.manualApproval = !d.settings.manualApproval; }); toast(s.settings.manualApproval ? "Inscriptions acceptées automatiquement" : "Validation manuelle activée", "info"); }} aria-label="Validation manuelle" /><span className="switch" /></label>
       </div>
-      <Segmented value={tab} onChange={setTab} options={[{ v: "accounts", l: `Comptes (${accounts.length})` }, { v: "pending", l: `Inscriptions à valider (${pending.length})` }, { v: "rejected", l: `Refusées (${rejected.length})` }]} />
+      <Segmented value={tab} onChange={setTab} options={[{ v: "accounts", l: `Comptes (${accounts.length})` }, { v: "pending", l: `Inscriptions à valider (${pending.length})` }, { v: "plans", l: `Demandes de forfait (${requests.length})` }, { v: "rejected", l: `Refusées (${rejected.length})` }]} />
       <div style={{ marginTop: 16 }}>
         {tab === "accounts" && <AdminMerchants embedded />}
         {tab === "pending" && (pending.length ? (
@@ -125,7 +138,7 @@ export function AdminMerchantsPage() {
                 </dl>
                 <p className="small">{m.description}</p>
                 <div className="app-actions">
-                  <label className="small muted">Forfait : <select id={"ap-" + m.id} className="select select-sm" value={approvePlan[m.id] || m.plan} onChange={(e) => setApprovePlan({ ...approvePlan, [m.id]: e.target.value as PlanId })}>{PLANS.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
+                  <label className="small muted">Forfait : <select id={"ap-" + m.id} className="select select-sm" value={approvePlan[m.id] || m.planRequest || m.plan} onChange={(e) => setApprovePlan({ ...approvePlan, [m.id]: e.target.value as PlanId })}>{PLANS.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
                   <div className="row">
                     <Btn size="sm" variant="ghost" icon={X} onClick={() => { setReject(m); setReason(""); }}>Refuser</Btn>
                     <Btn size="sm" icon={Check} onClick={() => approve(m)}>Valider l'inscription</Btn>
@@ -135,6 +148,37 @@ export function AdminMerchantsPage() {
             ))}
           </div>
         ) : <Empty icon={UserPlus} title="Aucune inscription en attente" body="Les commerçants s'inscrivent depuis l'espace consommateur : Commerces, puis « Inscrire mon commerce »." />)}
+        {tab === "plans" && (requests.length ? (
+          <div className="apps">
+            {requests.map((m) => {
+              const from = planById(m.plan), to = planById(m.planRequest!);
+              return (
+                <div key={m.id} className="panel app">
+                  <div className="app-head">
+                    <MerchantLogo m={m} size={44} />
+                    <div style={{ flex: 1, minWidth: 0 }}><strong>{m.name}</strong><div className="muted small">{m.commune} · demande {m.planRequestAt ? "reçue " + fmtRel(m.planRequestAt) : "en attente"}</div></div>
+                    <span className="pill pill-sm pill-amber"><i />{from.name} → {to.name}</span>
+                  </div>
+                  <dl className="app-facts">
+                    <div><dt>Forfait demandé</dt><dd><b>{to.name}</b> · {to.price ? `${to.price.toLocaleString("fr-FR")} F / mois` : "gratuit"}</dd></div>
+                    <div><dt>Forfait actuel</dt><dd>{from.name}</dd></div>
+                    <div><dt><Phone size={13} /> Téléphone</dt><dd className="sel">{m.phone}</dd></div>
+                    <div><dt><Mail size={13} /> E-mail</dt><dd className="sel">{m.email}</dd></div>
+                    <div><dt>Responsable</dt><dd>{m.contactName || "—"}</dd></div>
+                  </dl>
+                  <p className="note"><Info size={14} /> Contactez le commerçant pour la facturation, puis activez le forfait une fois le paiement reçu.</p>
+                  <div className="app-actions">
+                    <span />
+                    <div className="row">
+                      <Btn size="sm" variant="ghost" icon={X} onClick={() => { setRefuse(m); setReason(""); }}>Refuser</Btn>
+                      <Btn size="sm" icon={Check} onClick={() => acceptPlan(m)}>Activer le forfait {to.name}</Btn>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : <Empty icon={Clock} title="Aucune demande de forfait" body="Quand un commerçant choisit un forfait payant dans son espace (Forfaits), sa demande apparaît ici." />)}
         {tab === "rejected" && (rejected.length ? (
           <div className="posts">
             {rejected.map((m) => (
@@ -155,6 +199,11 @@ export function AdminMerchantsPage() {
           <div className="row-end"><Btn type="button" variant="ghost" onClick={() => setAdding(false)}>Annuler</Btn><Btn type="submit" icon={Check}>Créer le compte</Btn></div>
         </form>
       </Modal>
+      <Modal open={!!refuse} onClose={() => setRefuse(null)} title={`Refuser la demande de ${refuse?.name || ""}`}>
+        <p className="muted" style={{ marginTop: 0 }}>Le commerce garde son forfait actuel ({refuse ? planById(refuse.plan).name : ""}). Le motif s'affiche dans sa page Forfaits.</p>
+        <Field label="Motif (facultatif)" htmlFor="pr-reason"><input id="pr-reason" value={reason} onChange={(e) => setReason(e.target.value.slice(0, 200))} placeholder="Paiement non reçu, forfait inadapté…" /></Field>
+        <div className="row-end" style={{ marginTop: 12 }}><Btn variant="ghost" onClick={() => setRefuse(null)}>Annuler</Btn><Btn onClick={doRefuse}>Refuser la demande</Btn></div>
+      </Modal>
       <Modal open={!!reject} onClose={() => setReject(null)} title={`Refuser ${reject?.name || ""}`}>
         <div className="chips-wrap" style={{ marginBottom: 10 }}>{["Informations incomplètes", "RIDET invalide ou manquant", "Activité hors périmètre (vente entre particuliers)", "Doublon d'un commerce existant", "Pratiques commerciales douteuses"].map((r) => <Chip key={r} active={reason === r} onClick={() => setReason(r)}>{r}</Chip>)}</div>
         <Field label="Motif" htmlFor="rj-reason"><input id="rj-reason" value={reason} onChange={(e) => setReason(e.target.value)} /></Field>
@@ -171,9 +220,10 @@ export function MerchantSignup() {
   const [f, setF] = useState<F>(blank());
   const [err, setErr] = useState<Record<string, string>>({});
   const [done, setDone] = useState<Merchant | null>(null);
+  const [agree, setAgree] = useState(false);
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
-    const er = validate(f, s.merchants); setErr(er);
+    const er = validate(f, s.merchants); if (!agree) er.agree = "Acceptez les conditions pour envoyer la demande."; setErr(er);
     if (Object.keys(er).length) { toast("Vérifiez les champs signalés", "warn"); return; }
     const auto = !s.settings.manualApproval;
     const m = build(f, auto ? "active" : "pending", "inscription", s.me!.id);
@@ -199,6 +249,8 @@ export function MerchantSignup() {
       <p className="muted" style={{ margin: "4px 0 18px" }}>Rejoignez ARRIVAGE pour annoncer vos arrivages aux Calédoniens. {s.settings.manualApproval ? "Chaque inscription est vérifiée par l'équipe avant publication." : ""}</p>
       <form className="form panel" onSubmit={submit} noValidate>
         <MerchantFields f={f} setF={setF} err={err} />
+        <label className="check-line"><input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} /><span>Je certifie être autorisé(e) à représenter ce commerce et j'accepte les <a href={toHash("consumer", { name: "terms" })} target="_blank" rel="noopener">conditions d'utilisation</a>, notamment les engagements des commerçants (article 5).</span></label>
+        {err.agree && <p className="field-err">{err.agree}</p>}
         <div className="row-end"><Btn type="submit" icon={Store}>Envoyer ma demande</Btn></div>
       </form>
     </div>

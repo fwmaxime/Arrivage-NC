@@ -182,7 +182,7 @@ function ReportDesk({ id, onClose }: { id: string | null; onClose: () => void })
             <div>
               <div className="row"><strong>{r.reason}</strong><ReportPill status={r.status} /></div>
               <div className="muted small">{p ? `${p.name} · ${fmtXPF(p.price)} · ${catById(p.category).label}` : "Publication supprimée"}</div>
-              {p && <div className="row" style={{ marginTop: 4 }}><StatePill state={p.state} /><StatusPill status={p.status} small /></div>}
+              {p && <div className="row" style={{ marginTop: 4 }}><StatePill state={p.state} /><StatusPill status={p.status} at={p.arrivedAt} small /></div>}
             </div>
           </div>
           {m && (

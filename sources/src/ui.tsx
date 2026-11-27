@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { X, Check, Info, TriangleAlert, ImageOff } from "lucide-react";
-import { catById, Merchant, Product, statusLabel } from "./data";
+import { catById, Merchant, Product, statusLabel, statusText, daysSince } from "./data";
 import { useStore } from "./store";
 
 export const cx = (...a: any[]) => a.filter(Boolean).join(" ");
@@ -31,8 +31,9 @@ export function IconBtn({ icon: Icon, label, active, className, size = 18, ...re
 }
 
 const STATUS_TONE: Record<string, string> = { today: "orange", new: "green", restock: "blue", soon: "violet", limited: "amber", out: "grey" };
-export function StatusPill({ status, small }: { status: string; small?: boolean }) {
-  return <span className={cx("pill", `pill-${STATUS_TONE[status] || "grey"}`, small && "pill-sm")}><i />{statusLabel(status)}</span>;
+export function StatusPill({ status, small, at }: { status: string; small?: boolean; at?: string }) {
+  const live = at && status === "today" && daysSince(at) >= 1 ? "new" : status;
+  return <span className={cx("pill", `pill-${STATUS_TONE[live] || "grey"}`, small && "pill-sm")}><i />{statusText(status, at)}</span>;
 }
 
 export function Chip({ children, active, onClick, icon: Icon }: any) {
@@ -49,7 +50,7 @@ export function ProductVisual({ p, variant = 0, className, rounded = true }: { p
   const src = p.images?.[variant] || (variant === 0 ? p.images?.[0] : undefined);
   const c = catById(p.category);
   if (src && !err) {
-    return <div className={cx("pv", rounded && "pv-r", className)}><img src={src} alt={p.name} onError={() => setErr(true)} loading="lazy" /></div>;
+    return <div className={cx("pv", rounded && "pv-r", className)}><img src={src} alt={p.name} loading="lazy" decoding="async" onError={() => setErr(true)} /></div>;
   }
   const Icon = c.icon;
   return (
@@ -68,7 +69,7 @@ export function ProductVisual({ p, variant = 0, className, rounded = true }: { p
 
 export function MerchantLogo({ m, size = 44 }: { m: Merchant; size?: number }) {
   const initials = m.name.split(/\s+/).filter((w) => w.length > 2 || /^[A-Z]/.test(w)).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
-  if (m.logo) return <img className="mlogo" src={m.logo} alt={m.name} style={{ width: size, height: size, borderRadius: m.shape === "round" ? "50%" : 12 }} />;
+  if (m.logo) return <img className="mlogo" src={m.logo} alt={m.name} loading="lazy" decoding="async" style={{ width: size, height: size, borderRadius: m.shape === "round" ? "50%" : 12 }} />;
   return (
     <span className={cx("mlogo", `mlogo-${m.shape}`)} style={{ width: size, height: size, background: m.color, color: m.ink, fontSize: size * 0.36 }} aria-hidden>
       {initials}
