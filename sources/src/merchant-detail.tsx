@@ -1,11 +1,12 @@
 import React, { useMemo, useState } from "react";
-import { ChevronLeft, ShoppingBag, CreditCard, Undo2, Receipt, Package, Wallet, Eye, Phone, Mail, MapPin, User, CalendarDays, ShieldCheck, Ban, Check, Download, ArrowUpRight, ArrowDownLeft, Flag, Activity as ActivityIco, Search, Store, Copy } from "lucide-react";
+import { ChevronLeft, ShoppingBag, CreditCard, Undo2, Receipt, Package, Wallet, Eye, Phone, Mail, MapPin, User, CalendarDays, ShieldCheck, Ban, Check, Download, Trash2, ArrowUpRight, ArrowDownLeft, Flag, Activity as ActivityIco, Search, Store, Copy } from "lucide-react";
 import { fmtXPF, fmtNum, fmtRel, planById, PLANS, norm, statusLabel } from "./data";
 import { useStore } from "./store";
 import { useNav } from "./nav";
 import { Btn, Stat, Segmented, MerchantLogo, Empty, Modal, cx, DemoTag, ProductVisual } from "./ui";
 import { Reservation, ResPill, RES_LABEL } from "./reservations";
 import { toCSV } from "./finance";
+import { AdminDeleteModal } from "./admin";
 
 const fmtD = (iso: string) => new Date(iso).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" });
 const fmtDT = (iso: string) => new Date(iso).toLocaleString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
@@ -34,6 +35,7 @@ export function AdminMerchantDetail({ id }: { id: string }) {
   const [q, setQ] = useState("");
   const [open, setOpen] = useState<string | null>(null);
   const [csv, setCsv] = useState("");
+  const [del, setDel] = useState<any>(null);
   const m = s.merchants.find((x) => x.id === id);
   const orders = useMemo(() => s.reservations.filter((r) => r.merchantId === id).sort((a, b) => b.at.localeCompare(a.at)), [s.reservations, id]);
   if (!m) return <div className="page"><Empty icon={Store} title="Commerce introuvable" action={<Btn onClick={() => go("merchants")}>Retour aux commerçants</Btn>} /></div>;
@@ -97,7 +99,9 @@ export function AdminMerchantDetail({ id }: { id: string }) {
           <Btn variant="outline" size="sm" icon={Eye} onClick={() => { mutate((d) => { d.currentMerchant = m.id; }); setMode("merchant", { name: "dashboard" }); }}>Voir son espace</Btn>
           {m.status === "active" ? <Btn variant="ghost" size="sm" icon={Ban} onClick={() => upd((x) => (x.status = "suspended"), `${m.name} suspendu : ses publications sont retirées du catalogue`)}>Suspendre</Btn>
             : m.status === "suspended" ? <Btn variant="ghost" size="sm" icon={Check} onClick={() => upd((x) => (x.status = "active"), `${m.name} réactivé`)}>Réactiver</Btn> : null}
+          <Btn variant="ghost" size="sm" icon={Trash2} className="danger-text" onClick={() => setDel({ kind: "merchant", id: m.id, name: m.name, extra: products.length ? `${products.length} annonce(s) seront supprimées avec lui.` : undefined })}>Supprimer</Btn>
         </div>
+        <AdminDeleteModal target={del} onClose={() => setDel(null)} onDone={() => go("merchants")} />
       </div>
 
       <div className="stats">

@@ -147,6 +147,7 @@ interface Ctx {
   signIn: (id: string, pw: string) => Promise<string | null>;
   signUp: (email: string, pw: string, name: string) => Promise<{ error: string | null; confirm?: boolean }>;
   deleteAccount: () => Promise<string | null>;
+  adminDelete: (kind: "merchant" | "user", id: string) => Promise<string | null>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<string | null>;
   updatePassword: (pw: string) => Promise<string | null>;
@@ -543,6 +544,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     toast("Votre compte et vos données ont été supprimés", "info");
     return null;
   };
+  // Suppression par un administrateur (fonctions du script supabase/admin.sql)
+  const adminDelete = async (kind: "merchant" | "user", id: string) => {
+    if (!sb) return "Service indisponible.";
+    const { error } = kind === "merchant" ? await sb.rpc("admin_delete_merchant", { mid: id }) : await sb.rpc("admin_delete_user", { uid: id });
+    if (error) return /could not find|does not exist|schema cache/i.test(error.message) ? "La suppression n'est pas encore activée : lancez le script admin.sql dans Supabase." : error.message;
+    await loadAll(cur.current.me);
+    return null;
+  };
   const resetPassword = async (email: string) => {
     if (!sb) return "Service indisponible.";
     const { error } = await sb.auth.resetPasswordForEmail(email.trim().toLowerCase(), { redirectTo: location.origin + location.pathname });
@@ -574,7 +583,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   };
   const reload = async () => { await loadAll(cur.current.me); };
 
-  return <C.Provider value={{ s, storageOk, mutate, toast, toasts, log, publish, online: !!sb, auth, openAuth, closeAuth, requireAccount, signIn, signUp, signOut, deleteAccount, resetPassword, updatePassword, updateName, demand, merchantStats, reload }}>{children}</C.Provider>;
+  return <C.Provider value={{ s, storageOk, mutate, toast, toasts, log, publish, online: !!sb, auth, openAuth, closeAuth, requireAccount, signIn, signUp, signOut, deleteAccount, adminDelete, resetPassword, updatePassword, updateName, demand, merchantStats, reload }}>{children}</C.Provider>;
 }
 
 export const newId = uid;

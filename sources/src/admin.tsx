@@ -6,7 +6,7 @@ import { Users, Store, Package, BellRing, Search, Wallet, Flag, Check, Ban, Eye,
 import { DemandRaw, useStore } from "./store";
 import { useNav } from "./nav";
 import { CATEGORIES, PLANS, planById, catById, fmtXPF, fmtNum, fmtRel, norm, planRequests } from "./data";
-import { Btn, IconBtn, Stat, Segmented, StatusPill, ProductVisual, MerchantLogo, Empty, DemoTag, cx, Confirm, Chip } from "./ui";
+import { Btn, IconBtn, Stat, Segmented, StatusPill, ProductVisual, MerchantLogo, Empty, DemoTag, cx, Confirm, Chip, Modal, Field } from "./ui";
 import { StatePill } from "./merchant";
 
 const tipStyle = { background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 10, fontSize: 12, color: "var(--fg)" };
@@ -154,8 +154,41 @@ export function AdminMerchants({ embedded }: { embedded?: boolean }) {
   );
 }
 
+// Suppression définitive d'un commerce ou d'un compte, avec saisie de confirmation
+export function AdminDeleteModal({ target, onClose, onDone }: { target: { kind: "merchant" | "user"; id: string; name: string; extra?: string } | null; onClose: () => void; onDone?: () => void }) {
+  const { adminDelete, toast } = useStore();
+  const [txt, setTxt] = useState(""); const [err, setErr] = useState(""); const [busy, setBusy] = useState(false);
+  useEffect(() => { setTxt(""); setErr(""); }, [target?.id]);
+  if (!target) return null;
+  const isM = target.kind === "merchant";
+  const run = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (txt.trim().toUpperCase() !== "SUPPRIMER") return setErr("Tapez SUPPRIMER pour confirmer.");
+    setBusy(true); const r = await adminDelete(target.kind, target.id); setBusy(false);
+    if (r) return setErr(r);
+    toast(isM ? `Commerce « ${target.name} » supprimé` : `Compte « ${target.name} » supprimé`, "info");
+    onClose(); onDone?.();
+  };
+  return (
+    <Modal open onClose={onClose} title={isM ? "Supprimer ce commerce" : "Supprimer ce compte"}>
+      <form className="form" onSubmit={run} noValidate>
+        <p style={{ marginTop: 0 }}><strong>{target.name}</strong> sera supprimé définitivement. Cette action ne peut pas être annulée.</p>
+        <p className="muted small" style={{ margin: 0 }}>{isM
+          ? "Ses annonces, son équipe, ses avis et les signalements liés seront effacés. Le propriétaire garde son compte client."
+          : "Son compte, ses favoris, alertes et avis seront effacés, ainsi que ses commerces et leurs annonces."}</p>
+        {target.extra && <p className="banner-warn" style={{ margin: 0 }}><Info size={15} /> {target.extra}</p>}
+        <p className="muted small" style={{ margin: 0 }}>Pour simplement retirer temporairement, préférez {isM ? "« Suspendre »" : "« Bloquer »"}.</p>
+        <Field label="Pour confirmer, tapez SUPPRIMER" htmlFor="adm-del"><input id="adm-del" autoComplete="off" value={txt} onChange={(e) => setTxt(e.target.value)} /></Field>
+        {err && <p className="field-err">{err}</p>}
+        <div className="row-end"><Btn variant="ghost" onClick={onClose}>Annuler</Btn><Btn type="submit" variant="danger" icon={Trash2} disabled={busy}>{busy ? "Suppression…" : "Supprimer définitivement"}</Btn></div>
+      </form>
+    </Modal>
+  );
+}
+
 export function AdminUsers() {
   const { s, mutate, toast, log } = useStore();
+  const [del, setDel] = useState<any>(null);
   const [q, setQ] = useState("");
   const ROLE: Record<string, string> = { client: "Client", merchant: "Commerçant", admin: "Admin" };
   const list = s.users.filter((u) => !q || norm(u.label + " " + u.email).includes(norm(q))).sort((a, b) => +new Date(b.joinedAt) - +new Date(a.joinedAt));
@@ -172,12 +205,14 @@ export function AdminUsers() {
               <tr key={u.id} className={cx(u.status === "blocked" && "is-muted")}>
                 <td><strong>{u.label}</strong><div className="muted small sel">{u.email}</div></td><td>{ROLE[u.role] || u.role}</td><td>{u.commune || "—"}</td><td>{fmtRel(u.joinedAt)}</td><td>{u.alerts}</td><td>{u.favorites}</td>
                 <td>{u.status === "active" ? <span className="pill pill-sm pill-green"><i />Actif</span> : <span className="pill pill-sm pill-red"><i />Bloqué</span>}</td>
-                <td className="cell-actions">{u.id !== s.me?.id && u.role !== "admin" && <Btn size="sm" variant="ghost" icon={u.status === "active" ? Ban : Check} onClick={() => { mutate((d) => { const x = d.users.find((y) => y.id === u.id)!; x.status = x.status === "active" ? "blocked" : "active"; log(d, `${u.label} ${x.status === "blocked" ? "bloqué" : "débloqué"}`, "admin"); }); toast(u.status === "active" ? `${u.label} bloqué` : `${u.label} débloqué`); }}>{u.status === "active" ? "Bloquer" : "Débloquer"}</Btn>}</td>
+                <td className="cell-actions">{u.id !== s.me?.id && u.role !== "admin" && <Btn size="sm" variant="ghost" icon={u.status === "active" ? Ban : Check} onClick={() => { mutate((d) => { const x = d.users.find((y) => y.id === u.id)!; x.status = x.status === "active" ? "blocked" : "active"; log(d, `${u.label} ${x.status === "blocked" ? "bloqué" : "débloqué"}`, "admin"); }); toast(u.status === "active" ? `${u.label} bloqué` : `${u.label} débloqué`); }}>{u.status === "active" ? "Bloquer" : "Débloquer"}</Btn>}
+                  {u.id !== s.me?.id && u.role !== "admin" && <IconBtn icon={Trash2} label="Supprimer le compte" onClick={() => { const shops = s.merchants.filter((m: any) => m.ownerId === u.id).map((m) => m.name); setDel({ kind: "user", id: u.id, name: u.label, extra: shops.length ? `Ce compte possède ${shops.length > 1 ? "les commerces" : "le commerce"} ${shops.join(", ")}, qui ${shops.length > 1 ? "seront supprimés" : "sera supprimé"} aussi.` : undefined }); }} />}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+      <AdminDeleteModal target={del} onClose={() => setDel(null)} />
     </div>
   );
 }
