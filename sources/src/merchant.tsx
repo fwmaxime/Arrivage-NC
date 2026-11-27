@@ -2,8 +2,9 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   FileSpreadsheet,
   Eye, Heart, MousePointerClick, Users, BellRing, Package, Plus, Pencil, Copy, Trash2, Zap, Ban, Lock, Crown, Check, ImagePlus,
-  Calendar, Save, Send, Clock, TrendingUp, Info, Search, RotateCcw, Megaphone, Store, Timer, MapPin, Wand2, Target, ShoppingBag, Shirt,
+  Calendar, Save, Send, Clock, TrendingUp, Info, Search, RotateCcw, Megaphone, Store, Timer, MapPin, Wand2, Target, ShoppingBag, Shirt, Flame, UtensilsCrossed,
 } from "lucide-react";
+import { DEAL_KINDS, OCCASIONS, DealKind, dealKind, dealState, dealWhen, dealBadge, dealTitle, isResto, presets, toLocalInput, RESTO_CAT } from "./deals";
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid, BarChart, Bar, Cell, PieChart, Pie } from "recharts";
 import { CATEGORIES, COMMUNES, STATUSES, PLANS, DemandItem, catById, planById, fmtXPF, fmtNum, fmtRel, fmtDate, norm, Product, Merchant, Status, PlanId } from "./data";
 import { useStore, alertMatches, newId, tokens, productHay } from "./store";
@@ -202,7 +203,7 @@ export function PostsPage() {
     <div className="page">
       <div className="page-head">
         <div><h1 className="page-title">Mes publications</h1><p className="muted">{plan.quota ? `${Math.max(0, quotaLeft)} publication(s) restante(s) ce mois-ci sur votre forfait ${plan.name}` : `Publications illimitées avec le forfait ${plan.name}`}</p></div>
-        <Btn icon={Plus} onClick={() => go("publish")}>Nouvel arrivage</Btn>
+        <div className="row"><Btn variant="outline" icon={isResto(me) ? UtensilsCrossed : Flame} onClick={() => go("publish", { deal: 1 })}>{isResto(me) ? "Nouvelle offre" : "Créer une promo"}</Btn><Btn icon={Plus} onClick={() => go("publish")}>Nouvel arrivage</Btn></div>
       </div>
       <Segmented value={tab} onChange={setTab} options={[{ v: "all", l: `Toutes (${counts.all})` }, { v: "published", l: `En ligne (${counts.published})` }, { v: "scheduled", l: `Programmées (${counts.scheduled})` }, { v: "draft", l: `Brouillons (${counts.draft})` }, { v: "hidden", l: `Masquées (${counts.hidden})` }]} />
       <div className="posts">
@@ -211,7 +212,7 @@ export function PostsPage() {
           <div key={p.id} className="post">
             <span className="post-thumb"><ProductVisual p={p} /></span>
             <div className="post-main">
-              <div className="post-title"><strong>{p.name}</strong>{p.sponsored && <span className="sponso sponso-inline">Sponsorisé</span>}</div>
+              <div className="post-title"><strong>{p.name}</strong>{p.sponsored && <span className="sponso sponso-inline">Sponsorisé</span>}{p.deal && <span className={cx("pill pill-sm deal-pill", dealState(p) === "upcoming" && "is-soon", dealState(p) === "ended" && "is-ended")}><Flame size={11} />{dealTitle(p)}{dealBadge(p) && dealBadge(p) !== dealKind(p.deal.kind).short ? ` · ${dealBadge(p)}` : ""} · {dealState(p) === "ended" ? "terminée" : dealWhen(p).toLowerCase()}</span>}</div>
               <div className="post-meta">
                 <StatePill state={p.state} />
                 <StatusPill status={p.status} small />
@@ -227,6 +228,8 @@ export function PostsPage() {
               {p.state === "published" && p.status !== "out" && <Btn size="sm" variant="outline" icon={Ban} onClick={() => upd(p.id, (x) => (x.status = "out"), "Passé en rupture de stock")}>Rupture</Btn>}
               {p.state === "published" && (p.status === "out" || p.status === "limited") && <Btn size="sm" variant="outline" icon={RotateCcw} onClick={() => upd(p.id, (x) => { x.status = "restock"; x.arrivedAt = new Date().toISOString(); }, "Marqué comme réapprovisionné")}>Réappro.</Btn>}
               {plan.can.sponsored && p.state === "published" && <Btn size="sm" variant="ghost" icon={Megaphone} onClick={() => upd(p.id, (x) => (x.sponsored = !x.sponsored), p.sponsored ? "Mise en avant retirée" : "Publication sponsorisée (simulation, sans paiement)")}>{p.sponsored ? "Retirer" : "Sponsoriser"}</Btn>}
+              {p.state === "published" && !p.deal && <Btn size="sm" variant="outline" icon={Flame} onClick={() => go("publish", { id: p.id, deal: 1 })}>Mettre en promo</Btn>}
+              {p.deal && dealState(p) === "ended" && <Btn size="sm" variant="outline" icon={RotateCcw} onClick={() => go("publish", { id: p.id, deal: 1, renew: 1 })}>Relancer</Btn>}
               <IconBtn icon={Pencil} label="Modifier" onClick={() => go("publish", { id: p.id })} />
               <IconBtn icon={Copy} label="Dupliquer" onClick={() => duplicate(p)} />
               <IconBtn icon={Trash2} label="Supprimer" onClick={() => setDel(p)} />
@@ -275,11 +278,24 @@ export function PublishPage({ params }: any) {
   const me = useMe();
   const plan = planById(me.plan);
   const editing = params?.id ? s.products.find((p) => p.id === params.id) : null;
-  const blank = { name: "", category: me.categories[0] as string, brand: "", description: "", price: "", qty: "", images: [] as string[], arrived: todayStr(), status: "today" as Status, store: me.stores[0], tags: "", schedule: "", tryOn: false };
+  const resto = isResto(me);
+  const defKind: DealKind = resto ? "plat" : "promo";
+  const p0 = presets(defKind)[0];
+  const dealBlank = { on: !!params?.deal || (resto && me.categories[0] === RESTO_CAT), kind: defKind as DealKind, occasion: "", was: "", discount: "", start: toLocalInput(p0.start), end: toLocalInput(p0.end) };
+  const dealFrom = (p: Product) => {
+    if (!p.deal) return { ...dealBlank, on: !!params?.deal, was: params?.deal && p.price ? String(p.price) : "" };
+    const renew = params?.renew;
+    return { on: true, kind: p.deal.kind, occasion: p.deal.occasion || "", was: p.deal.was ? String(p.deal.was) : "", discount: p.deal.discount || "", start: renew ? dealBlank.start : toLocalInput(new Date(p.deal.startAt)), end: renew ? dealBlank.end : toLocalInput(new Date(p.deal.endAt)) };
+  };
+  const blank = { name: "", category: (resto && params?.deal ? RESTO_CAT : me.categories[0]) as string, brand: "", description: "", price: "", qty: "", images: [] as string[], arrived: todayStr(), status: "today" as Status, store: me.stores[0], tags: "", schedule: "", tryOn: false, deal: dealBlank };
   const [f, setF] = useState(() => editing ? {
-    name: editing.name, category: editing.category, brand: editing.brand, description: editing.description, price: String(editing.price), qty: editing.qty != null ? String(editing.qty) : "",
+    name: editing.name, category: editing.category, brand: editing.brand === "Sans marque" ? "" : editing.brand, description: editing.description, price: editing.price && !(params?.deal && !editing.deal) ? String(editing.price) : "", qty: editing.qty != null ? String(editing.qty) : "",
     images: editing.images, arrived: editing.arrivedAt.slice(0, 10), status: editing.status, store: editing.store || me.stores[0], tags: editing.tags.join(", "), schedule: editing.scheduledAt ? editing.scheduledAt.slice(0, 16) : "", tryOn: !!editing.tryOn,
+    deal: dealFrom(editing),
   } : blank);
+  const isRestoCat = f.category === RESTO_CAT;
+  const dealOn = f.deal.on || isRestoCat;
+  const setD = (k: string, v: any) => setF((x) => ({ ...x, deal: { ...x.deal, [k]: v } }));
   const [err, setErr] = useState<any>({});
   const [imgErr, setImgErr] = useState("");
   const [started] = useState(Date.now());
@@ -299,15 +315,30 @@ export function PublishPage({ params }: any) {
       name: f.name.trim(), category: f.category as any, brand: f.brand.trim() || "Sans marque", description: f.description.trim() || "Aucune description fournie.",
       price: Math.round(Number(f.price)), qty: f.qty === "" ? null : Math.round(Number(f.qty)), images: f.images, arrivedAt: arrived, status: f.status, store: f.store,
       tags: f.tags.split(",").map((t) => t.trim().toLowerCase()).filter(Boolean), updatedAt: nowI, merchantId: me.id, tryOn: !!f.tryOn,
+      deal: dealOn ? {
+        kind: (isRestoCat ? f.deal.kind : dealKind(f.deal.kind).shop ? f.deal.kind : "promo") as DealKind, occasion: f.deal.occasion.trim() || undefined,
+        was: f.deal.was ? Math.round(Number(f.deal.was)) : null, discount: f.deal.discount.trim() || undefined,
+        startAt: new Date(f.deal.start || Date.now()).toISOString(), endAt: new Date(f.deal.end || Date.now()).toISOString(),
+      } : null,
     };
   };
   const validate = (forPublish: boolean) => {
     const e: any = {};
-    if (f.name.trim().length < 3) e.name = "Nom du produit requis (3 caractères minimum)";
+    if (f.name.trim().length < 3) e.name = isRestoCat ? "Nom du plat ou de l'offre requis (3 caractères minimum)" : "Nom du produit requis (3 caractères minimum)";
     if (!f.category) e.category = "Choisissez une catégorie";
-    if (forPublish || f.price !== "") {
+    const noPriceOk = dealOn && f.price === "" && !!f.deal.discount.trim();
+    if (dealOn) {
+      const st = +new Date(f.deal.start), en = +new Date(f.deal.end);
+      if (!f.deal.start || !Number.isFinite(st)) e.dealStart = "Date de début requise";
+      if (!f.deal.end || !Number.isFinite(en)) e.dealEnd = "Date de fin requise";
+      else if (en <= Date.now()) e.dealEnd = "La fin doit être dans le futur";
+      else if (Number.isFinite(st) && en <= st) e.dealEnd = "La fin doit être après le début";
+      else if (Number.isFinite(st) && en - st > 62 * 864e5) e.dealEnd = "Une offre limitée dure au plus 2 mois";
+      if (f.deal.was !== "" && f.price !== "" && Number(f.deal.was) <= Number(f.price)) e.dealWas = "Le prix habituel doit être supérieur au prix promo";
+    }
+    if ((forPublish && !noPriceOk) || f.price !== "") {
       const n = Number(f.price);
-      if (f.price === "" || !Number.isFinite(n)) e.price = "Indiquez un prix en F CFP";
+      if (f.price === "" || !Number.isFinite(n)) e.price = dealOn ? "Indiquez un prix, ou une remise ci-dessous (ex. « -30 % sur le rayon »)" : "Indiquez un prix en F CFP";
       else if (n <= 0) e.price = "Le prix doit être supérieur à 0";
       else if (n > 50000000) e.price = "Prix inhabituel, vérifiez la saisie";
     }
@@ -357,31 +388,61 @@ export function PublishPage({ params }: any) {
   return (
     <div className="page">
       <div className="page-head">
-        <div><h1 className="page-title">{editing ? "Modifier la publication" : "Publier un arrivage"}</h1><p className="muted">{editing ? "Les modifications sont visibles immédiatement côté consommateur." : "Remplissez l'essentiel, le reste est facultatif."}</p></div>
+        <div><h1 className="page-title">{editing ? (params?.deal && !editing.deal ? "Mettre en promotion" : "Modifier la publication") : isRestoCat ? "Publier une offre du restaurant" : dealOn ? "Créer une promotion" : "Publier un arrivage"}</h1><p className="muted">{editing ? "Les modifications sont visibles immédiatement côté consommateur." : dealOn ? "L'offre apparaît chez les clients entre les dates choisies, puis disparaît toute seule." : "Remplissez l'essentiel, le reste est facultatif."}</p></div>
         {!editing && <div className="timer" title="Temps de saisie"><Timer size={15} /> {elapsed} s</div>}
       </div>
       <div className="publish">
         <form className="form publish-form" onSubmit={(e) => { e.preventDefault(); save("publish"); }} noValidate>
-          {!editing && <button type="button" className="imp-link" onClick={() => go("import")}><FileSpreadsheet size={16} /><span><b>Tout un arrivage à publier ?</b> Importez vos produits depuis un fichier Excel.</span>{!plan.can.bulkImport && <span className="plan-badge plan-premium">Premium</span>}</button>}
-          {!editing && <button type="button" className="example" onClick={example}><Wand2 size={15} /> Remplir avec un exemple (déclenche l'alerte « GTA VI »)</button>}
-          <Field label="Nom du produit *" error={err.name} htmlFor="pf-name"><input id="pf-name" value={f.name} onChange={(e) => set("name", e.target.value)} placeholder="Ex. PlayStation 5 Pro 2 To" /></Field>
+          {!editing && !isRestoCat && <button type="button" className="imp-link" onClick={() => go("import")}><FileSpreadsheet size={16} /><span><b>Tout un arrivage à publier ?</b> Importez vos produits depuis un fichier Excel.</span>{!plan.can.bulkImport && <span className="plan-badge plan-premium">Premium</span>}</button>}
+          {!editing && !dealOn && <button type="button" className="example" onClick={example}><Wand2 size={15} /> Remplir avec un exemple (déclenche l'alerte « GTA VI »)</button>}
+          <Field label={isRestoCat ? "Nom du plat ou de l'offre *" : "Nom du produit *"} error={err.name} htmlFor="pf-name"><input id="pf-name" value={f.name} onChange={(e) => set("name", e.target.value)} placeholder={isRestoCat ? "Ex. Bougna de poulet, salade de papaye" : dealOn ? "Ex. PlayStation 5 Pro, ou -30 % sur tout le rayon pêche" : "Ex. PlayStation 5 Pro 2 To"} /></Field>
           <div className="form-2">
             <Field label="Catégorie *" error={err.category} htmlFor="pf-cat"><select id="pf-cat" value={f.category} onChange={(e) => set("category", e.target.value)}>{CATEGORIES.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}</select></Field>
-            <Field label="Marque" htmlFor="pf-brand"><input id="pf-brand" value={f.brand} onChange={(e) => set("brand", e.target.value)} placeholder="Ex. Sony" /></Field>
-            <Field label="Prix (F CFP) *" error={err.price} htmlFor="pf-price"><input id="pf-price" inputMode="numeric" value={f.price} onChange={(e) => set("price", e.target.value.replace(/[^\d]/g, ""))} placeholder="Ex. 109990" /></Field>
-            <Field label="Quantité disponible" hint="Facultatif" error={err.qty} htmlFor="pf-qty"><input id="pf-qty" inputMode="numeric" value={f.qty} onChange={(e) => set("qty", e.target.value.replace(/[^\d]/g, ""))} placeholder="Ex. 8" /></Field>
-            <Field label={f.status === "soon" ? "Date d'arrivage prévue" : "Date d'arrivage"} error={err.arrived} htmlFor="pf-date"><input id="pf-date" type="date" value={f.arrived} onChange={(e) => set("arrived", e.target.value)} /></Field>
+            {!isRestoCat && <Field label="Marque" htmlFor="pf-brand"><input id="pf-brand" value={f.brand} onChange={(e) => set("brand", e.target.value)} placeholder="Ex. Sony" /></Field>}
+            <Field label={dealOn && !isRestoCat ? "Prix promo (F CFP)" : "Prix (F CFP) *"} hint={dealOn ? "Facultatif si vous indiquez une remise" : undefined} error={err.price} htmlFor="pf-price"><input id="pf-price" inputMode="numeric" value={f.price} onChange={(e) => set("price", e.target.value.replace(/[^\d]/g, ""))} placeholder="Ex. 109990" /></Field>
+            <Field label={isRestoCat ? "Nombre de parts" : "Quantité disponible"} hint="Facultatif" error={err.qty} htmlFor="pf-qty"><input id="pf-qty" inputMode="numeric" value={f.qty} onChange={(e) => set("qty", e.target.value.replace(/[^\d]/g, ""))} placeholder="Ex. 8" /></Field>
+            {!dealOn && <Field label={f.status === "soon" ? "Date d'arrivage prévue" : "Date d'arrivage"} error={err.arrived} htmlFor="pf-date"><input id="pf-date" type="date" value={f.arrived} onChange={(e) => set("arrived", e.target.value)} /></Field>}
             <Field label="Point de vente" htmlFor="pf-store"><select id="pf-store" value={f.store} onChange={(e) => set("store", e.target.value)}>{me.stores.map((x) => <option key={x}>{x}</option>)}</select></Field>
           </div>
-          <Field label="Statut">
-            <div className="chips-wrap">{STATUSES.map((st) => <Chip key={st.id} active={f.status === st.id} onClick={() => set("status", st.id)}>{st.label}</Chip>)}</div>
+          {!isRestoCat && (
+            <label className={cx("tryon-opt deal-opt", f.deal.on && "is-on")}>
+              <input id="pf-deal" type="checkbox" checked={f.deal.on} onChange={(e) => setD("on", e.target.checked)} />
+              <span className="tryon-box"><Check size={14} strokeWidth={3} /></span>
+              <span className="tryon-txt"><strong><Flame size={15} /> Promotion flash ou offre limitée</strong><span className="micro">Black Friday, week-end, déstockage… L'offre est mise en avant dans « Promos et offres du moment » et retrouvée avec la recherche « promo ».</span></span>
+            </label>
+          )}
+          {dealOn && (
+            <div className="deal-form">
+              <Field label="Type d'offre">
+                <div className="chips-wrap">{DEAL_KINDS.filter((k) => isRestoCat ? k.resto : k.shop).map((k) => <Chip key={k.id} active={f.deal.kind === k.id || (!isRestoCat && !dealKind(f.deal.kind).shop && k.id === "promo")} onClick={() => { const pr = presets(k.id)[0]; setF((x) => ({ ...x, deal: { ...x.deal, kind: k.id, start: toLocalInput(pr.start), end: toLocalInput(pr.end) } })); }}>{k.label}</Chip>)}</div>
+              </Field>
+              <Field label="Occasion" hint="Facultatif">
+                <div className="chips-wrap">{OCCASIONS.slice(0, isRestoCat ? 6 : 9).map((o) => <Chip key={o} active={f.deal.occasion === o} onClick={() => setD("occasion", f.deal.occasion === o ? "" : o)}>{o}</Chip>)}</div>
+                <input id="pf-occ" value={f.deal.occasion} onChange={(e) => setD("occasion", e.target.value)} placeholder="Ou une autre occasion : Foire de Bourail, fête du quartier…" style={{ marginTop: 8 }} maxLength={40} />
+              </Field>
+              <div className="form-2">
+                {!isRestoCat || f.deal.kind === "promo" ? <Field label="Prix habituel (F CFP)" hint="Affiché barré" error={err.dealWas} htmlFor="pf-was"><input id="pf-was" inputMode="numeric" value={f.deal.was} onChange={(e) => setD("was", e.target.value.replace(/[^\d]/g, ""))} placeholder="Ex. 129990" /></Field> : null}
+                <Field label="Remise affichée" hint="Facultatif" htmlFor="pf-disc"><input id="pf-disc" value={f.deal.discount} onChange={(e) => setD("discount", e.target.value)} placeholder={isRestoCat ? "Ex. Dessert offert" : "Ex. -30 %, 2 achetés = 1 offert"} maxLength={32} /></Field>
+              </div>
+              <Field label="Période de l'offre">
+                <div className="chips-wrap" style={{ marginBottom: 8 }}>{presets(isRestoCat ? f.deal.kind : "promo").map((pr) => <Chip key={pr.l} active={f.deal.start === toLocalInput(pr.start) && f.deal.end === toLocalInput(pr.end)} onClick={() => setF((x) => ({ ...x, deal: { ...x.deal, start: toLocalInput(pr.start), end: toLocalInput(pr.end), occasion: pr.occasion && !x.deal.occasion ? pr.occasion : x.deal.occasion } }))}>{pr.l}</Chip>)}</div>
+                <div className="form-2">
+                  <Field label="Début" error={err.dealStart} htmlFor="pf-dstart"><input id="pf-dstart" type="datetime-local" value={f.deal.start} onChange={(e) => setD("start", e.target.value)} /></Field>
+                  <Field label="Fin" error={err.dealEnd} htmlFor="pf-dend"><input id="pf-dend" type="datetime-local" value={f.deal.end} onChange={(e) => setD("end", e.target.value)} /></Field>
+                </div>
+                <p className="micro">Avant le début, l'offre est annoncée « Bientôt » (jusqu'à 14 jours avant). Après la fin, elle disparaît du site et reste dans vos publications pour la relancer.</p>
+              </Field>
+            </div>
+          )}
+          <Field label={isRestoCat ? "Disponibilité" : "Statut"}>
+            <div className="chips-wrap">{(isRestoCat ? STATUSES.filter((st) => ["today", "limited", "out"].includes(st.id)) : dealOn ? STATUSES.filter((st) => st.id !== "soon") : STATUSES).map((st) => <Chip key={st.id} active={f.status === st.id} onClick={() => set("status", st.id)}>{isRestoCat ? ({ today: "Disponible", limited: "Dernières parts", out: "Épuisé" } as any)[st.id] : st.label}</Chip>)}</div>
           </Field>
-          <label className={cx("tryon-opt", f.tryOn && "is-on")}>
+          {!isRestoCat && <label className={cx("tryon-opt", f.tryOn && "is-on")}>
             <input id="pf-tryon" type="checkbox" checked={!!f.tryOn} onChange={(e) => set("tryOn", e.target.checked)} />
             <span className="tryon-box"><Check size={14} strokeWidth={3} /></span>
             <span className="tryon-txt"><strong><Shirt size={15} /> Produit essayable en magasin</strong><span className="micro">Le client peut l'essayer sur place avant d'acheter : cabine d'essayage, pointures, tailles.{["mode", "sneakers", "sport"].includes(f.category) && !f.tryOn ? " Conseillé pour cette catégorie." : ""}</span>{f.tryOn && <span className="tryon-warn">La réservation et le paiement en ligne sont désactivés pour ce produit, le client choisit sa taille en magasin.</span>}</span>
-          </label>
-          <Field label="Description" htmlFor="pf-desc"><textarea id="pf-desc" rows={3} value={f.description} onChange={(e) => set("description", e.target.value)} placeholder="Version, garantie, conditions…" /></Field>
+          </label>}
+          <Field label="Description" htmlFor="pf-desc"><textarea id="pf-desc" rows={3} value={f.description} onChange={(e) => set("description", e.target.value)} placeholder={isRestoCat ? "Accompagnement, sur place ou à emporter, allergènes…" : dealOn ? "Conditions de l'offre, produits concernés…" : "Version, garantie, conditions…"} /></Field>
           <Field label="Tags et mots-clés" hint="Séparés par des virgules. Ils aident les alertes à vous trouver." htmlFor="pf-tags"><input id="pf-tags" value={f.tags} onChange={(e) => set("tags", e.target.value)} placeholder="ps5, console, sony" /></Field>
           <Field label="Photographies" error={imgErr}>
             <div className="uploads">
@@ -402,7 +463,7 @@ export function PublishPage({ params }: any) {
           <div className="publish-actions">
             <Btn type="button" variant="ghost" icon={Save} onClick={() => save("draft")}>{editing?.state === "published" ? "Enregistrer" : "Brouillon"}</Btn>
             <Btn type="button" variant="outline" icon={Calendar} onClick={() => plan.can.schedule ? setSchedOpen(true) : toast("La programmation est incluse dès le forfait Business", "warn")}>Programmer{!plan.can.schedule && <Lock size={13} />}</Btn>
-            <Btn type="submit" variant="accent" icon={Send}>{editing?.state === "published" ? "Mettre à jour" : "Publier maintenant"}</Btn>
+            <Btn type="submit" variant="accent" icon={Send}>{editing?.state === "published" ? "Mettre à jour" : dealOn ? "Publier l'offre" : "Publier maintenant"}</Btn>
           </div>
           {plan.quota != null && <p className="micro">{Math.max(0, quotaLeft)} publication(s) restante(s) ce mois-ci · forfait {plan.name}</p>}
         </form>
@@ -410,12 +471,12 @@ export function PublishPage({ params }: any) {
         <aside className="publish-preview">
           <div className="preview-label"><Eye size={14} /> Aperçu en direct</div>
           <div className="pcard pcard-static">
-            <div className="pcard-media"><ProductVisual p={preview} /><div className="pcard-top"><StatusPill status={preview.status} small /></div></div>
+            <div className="pcard-media"><ProductVisual p={preview} /><div className="pcard-top">{preview.deal ? <span className="pill pill-sm deal-pill"><Flame size={11} />{dealTitle(preview)}</span> : <StatusPill status={preview.status} small />}</div>{preview.deal && dealBadge(preview) && <span className="deal-badge">{dealBadge(preview)}</span>}</div>
             <div className="pcard-body">
               <div className="pcard-cat">{catById(preview.category).label}</div>
               <h3 className="pcard-name">{preview.name}</h3>
               <div className="pcard-merchant">{me.name}</div>
-              <div className="pcard-foot"><span className="price">{fmtXPF(preview.price)}</span><span className="pcard-meta"><MapPin size={12} />{me.commune} · à l'instant</span></div>
+              <div className="pcard-foot"><span className="price-wrap"><span className={cx("price", preview.deal?.was && "price-deal")}>{preview.price ? fmtXPF(preview.price) : preview.deal?.discount || "Prix en magasin"}</span>{preview.deal?.was && preview.deal.was > preview.price ? <s className="price-was">{fmtXPF(preview.deal.was)}</s> : null}</span><span className="pcard-meta">{preview.deal ? dealWhen(preview) : <><MapPin size={12} />{me.commune} · à l'instant</>}</span></div>
             </div>
           </div>
           <MatchHint p={preview} />

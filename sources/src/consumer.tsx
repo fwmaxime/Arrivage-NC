@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Search, MapPin, Bell, User, Heart, ChevronRight, ChevronLeft, SlidersHorizontal, X, Store, Clock, Phone, Mail,
-  Navigation, Share2, BellRing, Flag, Plus, Pencil, Trash2, Copy, Check, Calendar, Package, BadgeCheck, Info, ArrowUpRight, RotateCcw, Megaphone, Palette, ShoppingBag, Shirt, Sparkles, Tag,
+  Navigation, Share2, BellRing, Flag, Plus, Pencil, Trash2, Copy, Check, Calendar, Package, BadgeCheck, Info, ArrowUpRight, RotateCcw, Megaphone, Palette, ShoppingBag, Shirt, Sparkles, Tag, Flame, Timer, UtensilsCrossed,
 } from "lucide-react";
 import { CATEGORIES, COMMUNES, STATUSES, catById, fmtXPF, fmtNum, fmtRel, fmtDate, fmtDateLong, norm, Product, Merchant, Status } from "./data";
 import { useStore, alertMatches, Alert, productHay, newId } from "./store";
@@ -10,6 +10,7 @@ import { useNav } from "./nav";
 import { ReserveButton } from "./reservations";
 import { RatingBadge, ReviewsBlock } from "./reviews";
 import { AccountSection } from "./auth";
+import { dealState, dealVisible, dealBadge, dealTitle, dealWhen, dealPeriod, isRestoProduct, pctOff } from "./deals";
 import { Btn, IconBtn, StatusPill, Chip, ProductVisual, MerchantLogo, MerchantCover, Modal, Empty, SectionHead, Segmented, Field, DemoTag, cx } from "./ui";
 
 // ---------- Sélecteurs ----------
@@ -18,7 +19,8 @@ export function useCatalog() {
   return useMemo(() => {
     const activeM = new Set(s.merchants.filter((m) => m.status === "active").map((m) => m.id));
     const activeC = new Set(s.categories.filter((c) => c.active).map((c) => c.id));
-    return s.products.filter((p) => p.state === "published" && activeM.has(p.merchantId) && activeC.has(p.category));
+    const now = Date.now();
+    return s.products.filter((p) => p.state === "published" && activeM.has(p.merchantId) && activeC.has(p.category) && dealVisible(p, now));
   }, [s.products, s.merchants, s.categories]);
 }
 export const popularity = (p: Product, favs: string[]) => p.views + p.favBase * 6 + (favs.includes(p.id) ? 40 : 0) + (p.contacts || 0) * 3;
@@ -52,9 +54,10 @@ export function ProductCard({ p, compact }: { p: Product; compact?: boolean }) {
     <article className={cx("pcard", compact && "pcard-compact", p.status === "out" && "is-out")} onClick={() => go("product", { id: p.id })} tabIndex={0} onKeyDown={(e) => e.key === "Enter" && go("product", { id: p.id })}>
       <div className="pcard-media">
         <ProductVisual p={p} />
-        <div className="pcard-top"><StatusPill status={p.status} small /></div>
+        <div className="pcard-top">{p.deal && p.status !== "out" ? <DealPill p={p} small /> : <StatusPill status={p.status} small />}</div>
         <FavButton id={p.id} overlay />
         {p.sponsored && <span className="sponso">Sponsorisé</span>}
+        {p.deal && dealBadge(p) && <span className={cx("deal-badge", dealState(p) === "upcoming" && "is-soon")}>{dealBadge(p)}</span>}
         {p.tryOn && <span className="tryon-tag"><Shirt size={11} /> Essayable</span>}
       </div>
       <div className="pcard-body">
@@ -62,12 +65,25 @@ export function ProductCard({ p, compact }: { p: Product; compact?: boolean }) {
         <h3 className="pcard-name">{p.name}</h3>
         <div className="pcard-merchant">{m?.name}{m?.verified && <BadgeCheck size={13} className="verified" />}</div>
         <div className="pcard-foot">
-          <span className="price">{fmtXPF(p.price)}</span>
-          <span className="pcard-meta"><MapPin size={12} />{m?.commune} · {isSoon ? "prévu " + fmtRel(p.arrivedAt) : fmtRel(p.publishedAt)}</span>
+          <PriceTag p={p} />
+          <span className="pcard-meta">{p.deal ? <><Timer size={12} />{dealWhen(p)}</> : <><MapPin size={12} />{m?.commune} · {isSoon ? "prévu " + fmtRel(p.arrivedAt) : fmtRel(p.publishedAt)}</>}</span>
         </div>
       </div>
     </article>
   );
+}
+
+// Prix avec prix barré pour les promotions ; « Prix en magasin » pour une remise sans prix unique
+export function PriceTag({ p, big }: { p: Product; big?: boolean }) {
+  const was = p.deal?.was && p.deal.was > p.price ? p.deal.was : 0;
+  if (!p.price) return <span className={cx("price", big && "pinfo-price")}>{p.deal?.discount || "Prix en magasin"}</span>;
+  return <span className={cx("price-wrap", big && "pinfo-price")}><span className={cx("price", was && "price-deal")}>{fmtXPF(p.price)}</span>{was ? <s className="price-was">{fmtXPF(was)}</s> : null}</span>;
+}
+export function DealPill({ p, small }: { p: Product; small?: boolean }) {
+  const st = dealState(p);
+  const resto = isRestoProduct(p);
+  const Ic = resto && p.deal?.kind !== "promo" ? UtensilsCrossed : Flame;
+  return <span className={cx("pill deal-pill", st === "upcoming" && "is-soon", small && "pill-sm")}><Ic size={small ? 11 : 13} />{st === "upcoming" ? "Bientôt · " : ""}{dealTitle(p)}</span>;
 }
 
 function Rail({ children }: any) {
@@ -134,10 +150,10 @@ export function LocationPicker({ open, onClose }: any) {
 const DATE_OPTS = [{ v: "all", l: "Toutes dates" }, { v: "24h", l: "24 h" }, { v: "7d", l: "7 jours" }, { v: "30d", l: "30 jours" }];
 type SearchTab = "all" | "products" | "shops" | "brands";
 const SORT_OPTS = [{ v: "relevance", l: "Pertinence" }, { v: "recent", l: "Plus récents" }, { v: "popular", l: "Popularité" }, { v: "priceAsc", l: "Prix croissant" }, { v: "priceDesc", l: "Prix décroissant" }];
-const emptyFilters = { cats: [] as string[], communes: [] as string[], statuses: [] as string[], min: "", max: "", date: "all", sort: "recent", onlyNew: false, tryOn: false, inStock: false };
+const emptyFilters = { cats: [] as string[], communes: [] as string[], statuses: [] as string[], min: "", max: "", date: "all", sort: "recent", onlyNew: false, tryOn: false, inStock: false, deals: false };
 const filtersFrom = (params: any) => ({
   ...emptyFilters, cats: params?.cat ? [params.cat] : [], communes: params?.commune ? [params.commune] : [], statuses: params?.status ? [params.status] : [],
-  date: params?.date || "all", sort: params?.sort || (params?.q ? "relevance" : "recent"), inStock: !!params?.stock, tryOn: !!params?.tryOn,
+  date: params?.date || "all", sort: params?.sort || (params?.q ? "relevance" : "recent"), inStock: !!params?.stock, tryOn: !!params?.tryOn, deals: !!params?.promo,
 });
 
 export function Explore({ params }: any) {
@@ -170,6 +186,7 @@ export function Explore({ params }: any) {
       if (!priceErr && max != null && p.price > max) return false;
       if (f.onlyNew && !["today", "new"].includes(p.status)) return false;
       if (f.tryOn && !p.tryOn) return false;
+      if (f.deals && !p.deal) return false;
       if (f.inStock && (p.status === "out" || p.status === "soon")) return false;
       if (f.date !== "all") {
         const lim = { "24h": 1, "7d": 7, "30d": 30 }[f.date as "24h"] * 864e5;
@@ -184,7 +201,10 @@ export function Explore({ params }: any) {
       priceAsc: (a: Product, b: Product) => a.price - b.price,
       priceDesc: (a: Product, b: Product) => b.price - a.price,
     };
-    return r.sort(by[f.sort]);
+    r = r.sort(by[f.sort]);
+    // Publications sponsorisées : jusqu'à 2 remontées en tête des résultats d'une recherche
+    if (nq && f.sort === "relevance") { const top = r.filter((p) => p.sponsored).slice(0, 2); r = [...top, ...r.filter((p) => !top.includes(p))]; }
+    return r;
   }, [cat, q, f, s.merchants, s.favorites, priceErr]);
 
   // Commerces et marques correspondant à la recherche (mêmes tolérances aux fautes que les produits)
@@ -213,7 +233,7 @@ export function Explore({ params }: any) {
   const openBrand = (b: string) => { setQ(b); setTab("products"); window.scrollTo({ top: 0 }); };
 
   const fix = useMemo(() => q.trim() ? correct(q, cat.map((p) => productHay(p, s.merchants.find((m) => m.id === p.merchantId)))) : null, [q, cat, s.merchants]);
-  const activeCount = f.cats.length + f.communes.length + f.statuses.length + (f.min ? 1 : 0) + (f.max ? 1 : 0) + (f.date !== "all" ? 1 : 0) + (f.onlyNew ? 1 : 0) + (f.tryOn ? 1 : 0) + (f.inStock ? 1 : 0);
+  const activeCount = f.cats.length + f.communes.length + f.statuses.length + (f.min ? 1 : 0) + (f.max ? 1 : 0) + (f.date !== "all" ? 1 : 0) + (f.onlyNew ? 1 : 0) + (f.tryOn ? 1 : 0) + (f.inStock ? 1 : 0) + (f.deals ? 1 : 0);
   const reset = () => { setF({ ...emptyFilters }); setQ(""); };
 
   const panel = (
@@ -235,6 +255,7 @@ export function Explore({ params }: any) {
       <label className="switch-row"><input type="checkbox" checked={f.inStock} onChange={(e) => setF({ ...f, inStock: e.target.checked })} /><span className="switch" /> En stock uniquement</label>
       <label className="switch-row"><input type="checkbox" checked={f.onlyNew} onChange={(e) => setF({ ...f, onlyNew: e.target.checked })} /><span className="switch" /> Nouveautés uniquement</label>
       <label className="switch-row"><input type="checkbox" checked={!!f.tryOn} onChange={(e) => setF({ ...f, tryOn: e.target.checked })} /><span className="switch" /> Essayable en magasin</label>
+      <label className="switch-row"><input type="checkbox" checked={!!f.deals} onChange={(e) => setF({ ...f, deals: e.target.checked })} /><span className="switch" /> Promos et offres limitées</label>
       <div className="fgroup">
         <span className="fgroup-l">Disponibilité</span>
         <div className="chips-wrap">{STATUSES.map((o) => <Chip key={o.id} active={f.statuses.includes(o.id)} onClick={() => toggle("statuses", o.id)}>{o.label}</Chip>)}</div>
@@ -253,7 +274,7 @@ export function Explore({ params }: any) {
   return (
     <div className="page explore">
       <div className="explore-head">
-        <h1 className="page-title">{q ? `Résultats pour « ${q} »` : f.cats.length === 1 ? catById(f.cats[0]).label : "Tous les arrivages"}</h1>
+        <h1 className="page-title">{q ? `Résultats pour « ${q} »` : f.cats.length === 1 ? catById(f.cats[0]).label : f.deals ? "Promos et offres du moment" : "Tous les arrivages"}</h1>
         <div className="explore-search">
           <div className="search search-inline">
             <Search size={18} className="search-ico" />
@@ -288,6 +309,7 @@ export function Explore({ params }: any) {
       )}
       {(view === "products" || view === "all") && <>
       <div className="quick-strip">
+        <Chip active={!!f.deals} icon={Flame} onClick={() => setF({ ...f, deals: !f.deals })}>Promos et offres</Chip>
         <Chip active={f.inStock} onClick={() => setF({ ...f, inStock: !f.inStock })}>En stock</Chip>
         <select className="select select-chip" value={f.communes.length === 1 ? f.communes[0] : ""} onChange={(e) => setF({ ...f, communes: e.target.value ? [e.target.value] : [] })} aria-label="Commune">
           <option value="">Toutes les communes</option>
@@ -353,6 +375,21 @@ export function Explore({ params }: any) {
   );
 }
 
+function DealBox({ p }: { p: Product }) {
+  const [, tick] = useState(0);
+  useEffect(() => { const t = setInterval(() => tick((x) => x + 1), 30000); return () => clearInterval(t); }, []);
+  const st = dealState(p)!;
+  return (
+    <div className={cx("dealbox", st === "upcoming" && "is-soon", st === "ended" && "is-ended")}>
+      <Timer size={18} />
+      <div>
+        <strong>{st === "ended" ? "Offre terminée" : dealWhen(p)}</strong>
+        <span>{dealPeriod(p.deal!)}{p.deal!.discount && p.price ? ` · ${p.deal!.discount}` : ""}</span>
+      </div>
+    </div>
+  );
+}
+
 // ---------- Fiche produit ----------
 export function ProductPage({ params }: any) {
   const { s, mutate, toast, log, requireAccount } = useStore();
@@ -402,11 +439,12 @@ export function ProductPage({ params }: any) {
         <div className="pinfo">
           <div className="pinfo-top">
             <button className="crumb" onClick={() => go("explore", { cat: p.category })}><c.icon size={14} /> {c.label}</button>
-            <StatusPill status={p.status} />
+            {p.deal && p.status !== "out" ? <DealPill p={p} /> : <StatusPill status={p.status} />}
           </div>
           <h1 className="pinfo-title">{p.name}</h1>
-          <div className="pinfo-brand">{p.brand}</div>
-          <div className="pinfo-price">{fmtXPF(p.price)}</div>
+          {p.brand !== "Sans marque" && <div className="pinfo-brand">{p.brand}</div>}
+          <div className="pinfo-pricerow"><PriceTag p={p} big />{pctOff(p) > 0 && <span className="deal-badge deal-badge-inline">-{pctOff(p)} %</span>}</div>
+          {p.deal && <DealBox p={p} />}
 
           <div className="seller">
             <button className="seller-main" onClick={() => go("merchant", { id: m.id })} aria-label={`Voir la boutique ${m.name}`}>
@@ -429,8 +467,8 @@ export function ProductPage({ params }: any) {
           </div>
 
           <dl className="facts">
-            <div><dt>Disponibilité déclarée</dt><dd>{p.status === "soon" ? "Bientôt disponible" : p.status === "out" ? "Épuisé" : p.qty ? `${p.qty} unité${p.qty > 1 ? "s" : ""} en stock` : "En stock"}</dd></div>
-            <div><dt>{p.status === "soon" ? "Arrivage prévu" : "Dernier arrivage"}</dt><dd>{fmtDateLong(p.arrivedAt)}</dd></div>
+            <div><dt>Disponibilité déclarée</dt><dd>{p.status === "soon" ? "Bientôt disponible" : p.status === "out" ? "Épuisé" : p.qty ? `${p.qty} ${isRestoProduct(p) ? "part" : "unité"}${p.qty > 1 ? "s" : ""} ${isRestoProduct(p) ? "prévues" : "en stock"}` : isRestoProduct(p) ? "Disponible" : "En stock"}</dd></div>
+            {!p.deal && <div><dt>{p.status === "soon" ? "Arrivage prévu" : "Dernier arrivage"}</dt><dd>{fmtDateLong(p.arrivedAt)}</dd></div>}
             <div><dt>Mise à jour</dt><dd>{fmtRel(p.updatedAt)}</dd></div>
             <div><dt>Point de vente</dt><dd>{p.store || m.stores[0]}</dd></div>
             {p.tryOn && <div className="facts-wide"><dt>Essayage</dt><dd><span className="tryon-ok"><Shirt size={14} /> Essayable en magasin</span></dd></div>}
@@ -440,16 +478,16 @@ export function ProductPage({ params }: any) {
           {p.tags.length > 0 && <div className="tags">{p.tags.map((t) => <span key={t} className="tag">#{t}</span>)}</div>}
 
           <div className="pinfo-actions">
-            <ReserveButton p={p} m={m} />
-            <Btn size="lg" variant="outline" icon={Phone} onClick={() => { setContact(true); mutate((d) => { const x = d.products.find((y) => y.id === p.id); if (x) x.contacts = (x.contacts || 0) + 1; }); }}>Contacter le commerce</Btn>
+            {isRestoProduct(p) || !p.price ? null : <ReserveButton p={p} m={m} />}
+            <Btn size="lg" variant={isRestoProduct(p) || !p.price ? "accent" : "outline"} icon={Phone} onClick={() => { setContact(true); mutate((d) => { const x = d.products.find((y) => y.id === p.id); if (x) x.contacts = (x.contacts || 0) + 1; }); }}>Contacter le commerce</Btn>
             <Btn size="lg" variant="outline" icon={BellRing} onClick={() => go("alerts", { create: { query: p.name, category: p.category, brand: p.brand } })}>Créer une alerte</Btn>
             <div className="row">
               <FavButtonLabeled id={p.id} />
-              <Btn variant="ghost" icon={Share2} onClick={() => copy(`${p.name} — ${fmtXPF(p.price)} chez ${m.name} (${m.commune}) · vu sur ARRIVAGE`, "Texte de partage copié")}>Partager</Btn>
+              <Btn variant="ghost" icon={Share2} onClick={() => copy(`${p.deal ? dealTitle(p) + " : " : ""}${p.name} — ${p.price ? fmtXPF(p.price) : p.deal?.discount || ""}${p.deal ? " (" + dealWhen(p).toLowerCase() + ")" : ""} chez ${m.name} (${m.commune}) · vu sur ARRIVAGE`, "Texte de partage copié")}>Partager</Btn>
               <Btn variant="ghost" icon={Flag} onClick={() => !requireAccount("Connectez-vous pour signaler une publication à la modération.") ? null : s.profile.blocked ? toast("Votre compte a été bloqué par la modération : vous ne pouvez plus envoyer de signalement", "warn") : setReport(true)}>Signaler</Btn>
             </div>
           </div>
-          <p className="disclaimer">Prix et disponibilité déclarés par le commerçant. La réservation met le produit de côté : vous le réglez directement en magasin.</p>
+          <p className="disclaimer">{isRestoProduct(p) ? "Prix et disponibilité déclarés par le restaurant. Commande et réservation de table directement auprès du restaurant." : "Prix et disponibilité déclarés par le commerçant. La réservation met le produit de côté : vous le réglez directement en magasin."}{p.deal ? " Offre valable dans la limite des stocks et aux dates indiquées." : ""}</p>
         </div>
       </div>
 
@@ -742,7 +780,8 @@ export function MerchantPage({ params }: any) {
   const catalog = useCatalog();
   if (!m) return <div className="page"><Empty icon={Store} title="Commerce introuvable" /></div>;
   const prods = catalog.filter((p) => p.merchantId === m.id);
-  const latest = prods.filter((p) => p.status !== "soon").sort((a, b) => +new Date(b.publishedAt) - +new Date(a.publishedAt));
+  const deals = prods.filter((p) => p.deal).sort((a, b) => +new Date(a.deal!.startAt) - +new Date(b.deal!.startAt));
+  const latest = prods.filter((p) => p.status !== "soon" && !p.deal).sort((a, b) => +new Date(b.publishedAt) - +new Date(a.publishedAt));
   const next = prods.filter((p) => p.status === "soon");
   const followers = m.followersBase + (s.follows.includes(m.id) ? 1 : 0);
   return (
@@ -765,6 +804,10 @@ export function MerchantPage({ params }: any) {
         <div className="mdetail-main">
           <p className="lead">{m.description}</p>
           <div className="chips-wrap">{m.categories.map((c) => <Chip key={c} icon={catById(c).icon} onClick={() => go("explore", { cat: c })}>{catById(c).label}</Chip>)}</div>
+          {deals.length > 0 && <section className="sec">
+            <SectionHead title={m.categories.includes("restauration" as any) ? "À la carte en ce moment" : "Promos et offres en cours"} sub="Offres limitées, aux dates indiquées" />
+            <div className="grid">{deals.map((p) => <ProductCard key={p.id} p={p} />)}</div>
+          </section>}
           <section className="sec">
             <SectionHead title="Derniers arrivages" sub={`${latest.length} publication${latest.length > 1 ? "s" : ""} en ligne`} />
             {latest.length ? <div className="grid">{latest.map((p) => <ProductCard key={p.id} p={p} />)}</div> : <Empty icon={Package} title="Aucun arrivage publié" />}

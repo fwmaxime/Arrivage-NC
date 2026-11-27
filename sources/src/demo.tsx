@@ -23,6 +23,8 @@ const MERCHANTS: Merchant[] = [
   { id: "m-froid", name: "Froid Calédonien", tagline: "Électroménager et climatisation", description: "Climatiseurs, réfrigérateurs et gros électroménager. Installation et SAV assurés par nos techniciens.", commune: "Nouméa", address: "Rue fictive des Entrepreneurs, Ducos", hours: H_STD, phone: "+687 00 26 93", email: "sav@froid-caledonien.demo", categories: ["electromenager", "maison"], color: "#3C5A73", ink: "#FFFFFF", shape: "square", plan: "premium", status: "active", verified: true, followersBase: 1670, joinedAt: "2026-01-12", addressVerified: false, stores: ["Ducos", "Païta"] },
   { id: "m-lifou", name: "Lifou Bazar", tagline: "Bazar et loisirs", description: "Jeux, papeterie, petit électroménager et articles de loisirs. Arrivages par le Betico et la barge.", commune: "Lifou", address: "Centre fictif de Wé", hours: ["Lun–Sam · 7h30 – 17h00", "Dimanche · Fermé"], phone: "+687 00 45 21", email: "bazar@lifou.demo", categories: ["loisirs", "electromenager", "alimentation"], color: "#B4562A", ink: "#FFFFFF", shape: "round", plan: "free", status: "active", verified: false, followersBase: 290, joinedAt: "2026-08-19", addressVerified: false, stores: ["Wé"] },
   { id: "m-koumac", name: "Koumac Électro", tagline: "High-tech dans le Nord", description: "Téléphonie, informatique et audio pour le Grand Nord. Commandes spéciales sous dix jours.", commune: "Koumac", address: "Avenue fictive principale", hours: H_STD, phone: "+687 00 37 84", email: "contact@koumac-electro.demo", categories: ["telephonie", "hightech", "electromenager"], color: "#24344D", ink: "#E77938", shape: "pill", plan: "starter", status: "active", verified: true, followersBase: 350, joinedAt: "2026-06-03", addressVerified: false, stores: ["Koumac"] },
+  { id: "m-fare", name: "Le Faré du Port", tagline: "Restaurant, cuisine locale", description: "Cuisine calédonienne et produits de la mer, en terrasse face au port. Plat du jour le midi, suggestions du week-end.", commune: "Nouméa", address: "Quai fictif n°7, Port Moselle", hours: ["Lun–Sam · 11h00 – 14h30 / 18h30 – 22h00", "Dimanche · 11h00 – 15h00"], phone: "+687 00 66 12", email: "table@fare-du-port.demo", categories: ["restauration"], color: "#9C3D22", ink: "#FFFFFF", shape: "round", plan: "premium", status: "active", verified: true, followersBase: 1320, joinedAt: "2026-06-12", addressVerified: false, stores: ["Port Moselle"] },
+  { id: "m-snack", name: "Snack des Alizés", tagline: "Snack, à emporter", description: "Sandwichs, bami, salades et jus frais, sur place ou à emporter. Menu du midi à petit prix.", commune: "Dumbéa", address: "Centre fictif de Koutio", hours: ["Lun–Ven · 6h00 – 15h00", "Samedi · 7h00 – 13h00"], phone: "+687 00 77 45", email: "snack@alizes.demo", categories: ["restauration"], color: "#2E6F6B", ink: "#FFFFFF", shape: "pill", plan: "starter", status: "active", verified: true, followersBase: 540, joinedAt: "2026-08-01", addressVerified: false, stores: ["Koutio"] },
   { id: "m-boulou", name: "Terre de Boulouparis", tagline: "Jardin, élevage et plein air", description: "Matériel de jardin, clôtures et plein air pour la côte Ouest.", commune: "Boulouparis", address: "Route fictive de Tomo", hours: H_STD, phone: "+687 00 58 30", email: "magasin@terre-boulou.demo", categories: ["bricolage", "loisirs", "auto"], color: "#5C6B3A", ink: "#F5F5F1", shape: "square", plan: "free", status: "active", verified: false, followersBase: 180, joinedAt: "2026-09-09", addressVerified: false, stores: ["Boulouparis"] },
 ];
 
@@ -88,6 +90,28 @@ const PRODUCTS: Product[] = [
   P("Débroussailleuse thermique", "Stihl", "bricolage", "m-boulou", 59900, "new", 100, "Moteur 2 temps, harnais fourni.", ["jardin", "débroussailleuse"]),
 ];
 
+
+// Promotions et offres d'exemple, datées par rapport à maintenant
+const at = (addDays: number, hh: number, mm = 0) => { const x = new Date(now); x.setDate(x.getDate() + addDays); x.setHours(hh, mm, 0, 0); return x.toISOString(); };
+const dow = new Date(now).getDay();
+const satIn = dow === 6 ? 0 : dow === 0 ? -1 : 6 - dow;
+const wkStart = satIn <= 0 ? h(2) : at(satIn, 0);
+const wkEnd = at(dow === 0 ? 0 : 7 - dow, 23, 59);
+const R = (name: string, mid: string, price: number, desc: string, tags: string[], deal: Product["deal"], extra: Partial<Product> = {}) =>
+  P(name, "Sans marque", "restauration", mid, price, "today", 3, desc, tags, { deal, ...extra });
+PRODUCTS.push(
+  // Restaurants
+  R("Bougna de poulet, riz et salade de papaye", "m-fare", 2400, "Le plat du jour : bougna cuit au four, servi avec riz et salade de papaye verte. Sur place ou à emporter.", ["bougna", "plat du jour", "midi", "cuisine locale"], { kind: "plat", startAt: at(0, 0), endAt: at(0, 23, 59) }, { qty: 25 }),
+  R("Plateau de la mer pour deux", "m-fare", 6900, "Suggestion du week-end : crevettes, poisson cru au lait de coco, cerf grillé et dessert maison. Réservation de table conseillée.", ["fruits de mer", "poisson cru", "crevettes", "week-end"], { kind: "weekend", occasion: "Week-end", startAt: wkStart, endAt: wkEnd }, { sponsored: true }),
+  R("Menu de fête : entrée, plat, dessert", "m-fare", 5900, "Menu spécial fêtes de fin d'année, servi midi et soir.", ["menu", "noël", "fêtes"], { kind: "menu", occasion: "Noël", startAt: at(7, 11), endAt: at(20, 22) }),
+  R("Formule bami + jus frais", "m-snack", 1200, "La formule du midi : bami au poulet et jus de fruits frais pressé.", ["bami", "formule", "midi", "jus"], { kind: "menu", discount: "Jus offert", startAt: at(0, 0), endAt: at(4, 15) }),
+  R("Sandwich jambon-beurre à emporter", "m-snack", 450, "Pain frais du matin. Prix spécial Black Friday.", ["sandwich", "à emporter"], { kind: "promo", occasion: "Black Friday", was: 650, startAt: h(6), endAt: at(2, 23, 59) }),
+  // Promotions flash des commerces
+  P("PlayStation 5 Slim 1 To", "Sony", "gaming", "m-pixel", 69990, "limited", 8, "Prix Black Friday sur la PS5 Slim, dans la limite de 10 consoles.", ["ps5", "console", "sony", "black friday"], { qty: 10, deal: { kind: "promo", occasion: "Black Friday", was: 84990, startAt: h(6), endAt: at(2, 23, 59) } }),
+  P("Tout le rayon pêche", "Sans marque", "nautisme", "m-recif", 0, "today", 5, "-30 % sur les cannes, moulinets et leurres, en magasin uniquement. Hors électronique marine.", ["pêche", "canne", "moulinet", "leurres"], { deal: { kind: "promo", occasion: "Week-end", discount: "-30 % sur le rayon", startAt: wkStart, endAt: wkEnd } }),
+  P("Climatiseur mobile 9 000 BTU", "Delonghi", "electromenager", "m-froid", 59900, "today", 12, "Offre limitée pour les premières chaleurs : climatiseur mobile prêt à brancher.", ["climatiseur", "clim", "chaleur"], { qty: 12, sponsored: true, deal: { kind: "limited", occasion: "Black Friday", was: 74900, startAt: h(10), endAt: at(3, 18) } }),
+  P("Sneakers : 2e paire à -50 %", "Sans marque", "sneakers", "m-baie", 0, "today", 4, "Sur une sélection de modèles signalés en boutique. Offre réservée au magasin de la Baie-des-Citrons.", ["sneakers", "basket", "promo"], { deal: { kind: "promo", occasion: "Noël", discount: "2e paire à -50 %", startAt: at(5, 9), endAt: at(8, 18) } }),
+);
 
 // Identifiants préfixés « demo- » : impossible de les confondre avec de vraies fiches
 const DEMO_MERCHANTS: Merchant[] = MERCHANTS.map((m) => ({ ...m, id: "demo-" + m.id }));

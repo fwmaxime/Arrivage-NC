@@ -1,12 +1,13 @@
 // Référentiels ARRIVAGE (catégories, communes, forfaits) et utilitaires.
 import {
   Laptop, Gamepad2, Smartphone, Shirt, Footprints, Sofa, Car, Hammer,
-  ShoppingBasket, Sparkles, Dumbbell, Sailboat, Refrigerator, Puzzle,
+  ShoppingBasket, Sparkles, Dumbbell, Sailboat, Refrigerator, Puzzle, UtensilsCrossed,
 } from "lucide-react";
+import type { Deal } from "./deals";
 
 export type CategoryId =
   | "hightech" | "gaming" | "telephonie" | "mode" | "sneakers" | "maison" | "auto"
-  | "bricolage" | "alimentation" | "beaute" | "sport" | "nautisme" | "electromenager" | "loisirs";
+  | "bricolage" | "alimentation" | "beaute" | "sport" | "nautisme" | "electromenager" | "loisirs" | "restauration";
 
 export const CATEGORIES: { id: CategoryId; label: string; icon: any; tint: string }[] = [
   { id: "hightech", label: "High-tech", icon: Laptop, tint: "#DCE3DE" },
@@ -23,6 +24,7 @@ export const CATEGORIES: { id: CategoryId; label: string; icon: any; tint: strin
   { id: "nautisme", label: "Nautisme", icon: Sailboat, tint: "#D3E1E3" },
   { id: "electromenager", label: "Électroménager", icon: Refrigerator, tint: "#DFE3E3" },
   { id: "loisirs", label: "Loisirs", icon: Puzzle, tint: "#E5DCE3" },
+  { id: "restauration", label: "Restaurants", icon: UtensilsCrossed, tint: "#F0DCCB" },
 ];
 export const catById = (id: string) => CATEGORIES.find((c) => c.id === id) || CATEGORIES[0];
 
@@ -76,6 +78,7 @@ export interface Product {
   scheduledAt?: string | null; sponsored: boolean; featured: boolean; images: string[]; store?: string;
   views: number; favBase: number; contacts: number; alertHits: number;
   tryOn?: boolean; // essayable en magasin
+  deal?: Deal | null; // promotion flash ou offre limitée (restaurants : plat du jour, suggestion du week-end…)
 }
 
 export interface DemandItem { query: string; category: CategoryId; searches: number; alerts: number; avgBudget: number; communes: Record<string, number>; trend: number }

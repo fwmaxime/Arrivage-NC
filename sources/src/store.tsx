@@ -5,6 +5,7 @@ import type { Reservation } from "./reservations";
 import type { Review } from "./reviews";
 import type { Staff } from "./staff";
 import { sb, stable, idToEmail, authError } from "./backend";
+import { dealWords, dealEnded } from "./deals";
 
 export interface Alert { id: string; query: string; brand: string; category: string; maxBudget: number | null; commune: string; features: string; active: boolean; createdAt: string; lastMatchAt?: string | null }
 export interface Notif { id: string; kind: "alert" | "follow" | "system" | "order"; title: string; body: string; productId?: string; read: boolean; at: string }
@@ -85,11 +86,11 @@ const STOP = new Set(["de", "du", "des", "la", "le", "les", "et", "sur", "pour",
 export const tokens = (s: string) => norm(s).split(/[^a-z0-9/]+/).filter((t) => t.length >= 2 && !STOP.has(t));
 
 export function productHay(p: Product, m?: Merchant) {
-  return norm([p.name, p.brand, p.tags.join(" "), p.description, catById(p.category).label, m?.name || ""].join(" "));
+  return norm([p.name, p.brand, p.tags.join(" "), p.description, catById(p.category).label, m?.name || "", dealWords(p)].join(" "));
 }
 
 export function alertMatches(a: Alert, p: Product, m?: Merchant) {
-  if (p.state !== "published" || p.status === "out") return false;
+  if (p.state !== "published" || p.status === "out" || dealEnded(p)) return false;
   if (a.category && a.category !== p.category) return false;
   if (a.maxBudget && p.price > a.maxBudget) return false;
   if (a.commune && m && m.commune !== a.commune) return false;
