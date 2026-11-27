@@ -8,7 +8,9 @@ import { StoreProvider, useStore, myMerchants } from "./store";
 import { AuthModal, NeedAccount } from "./auth";
 import { NavCtx, Mode, Route } from "./nav";
 import { Logo, Toasts, cx, IconBtn, Modal, Btn, MerchantLogo } from "./ui";
-import { Home, Explore, ProductPage, AlertsPage, FavoritesPage, MerchantsPage, MerchantPage, ProfilePage, SearchBox, NotificationsPanel, LocationPicker } from "./consumer";
+import { Explore, ProductPage, AlertsPage, FavoritesPage, MerchantsPage, MerchantPage, ProfilePage, NotificationsPanel, LocationPicker } from "./consumer";
+import { Home, SearchBox } from "./home";
+import { DemoProvider, DemoBanner, useDemo } from "./demo";
 import { MerchantDashboard, PostsPage, PublishPage, DemandPage, PlansPage, ShopProfile, useMe } from "./merchant";
 import { FinanceSimulator } from "./finance-ui";
 import { AdminOverview, AdminMerchants, AdminUsers, AdminPosts, AdminCategories } from "./admin";
@@ -84,7 +86,7 @@ function ConsumerShell({ route, go }: any) {
       <header className="chead">
         <div className="chead-in">
           <button className="logo-btn" onClick={() => go("home")} aria-label="Accueil ARRIVAGE"><Logo size={24} /></button>
-          <div className="chead-search hide-md"><SearchBox initial={route.name === "explore" ? route.params?.q || "" : ""} /></div>
+          <div className={cx("chead-search hide-md", route.name === "home" && "is-home")}>{route.name !== "home" && <SearchBox initial={route.name === "explore" ? route.params?.q || "" : ""} />}</div>
           <nav className="cnav hide-md">{links.slice(1).map((x) => <button key={x.n} className={cx(isActive(x.n) && "is-on")} onClick={() => go(x.n, {})}>{x.l}</button>)}</nav>
           <div className="chead-r">
             <button className="locbtn" onClick={() => setLoc(true)}><MapPin size={15} /><span>{s.profile.commune || "Tout le territoire"}</span><ChevronDown size={14} className="hide-xs" /></button>
@@ -95,10 +97,11 @@ function ConsumerShell({ route, go }: any) {
           </div>
         </div>
       </header>
+      <DemoBanner />
       {s.me?.blocked && <div className="blocked-banner"><Ban size={15} /> Votre compte a été bloqué par la modération : vous ne pouvez plus réserver, signaler ni publier d'avis. Écrivez à contact@arrivagenc.com pour en savoir plus.</div>}
       <main className="cmain" key={route.name + JSON.stringify(route.params || {})}>{page}</main>
       <footer className="cfoot">
-        <div><Logo size={18} /><p>Tout ce qui débarque, au même endroit.</p><button className="link" onClick={() => go("signup")}>Vous êtes commerçant ? Inscrire mon commerce</button></div>
+        <div><Logo size={18} /><p>Tout ce qui débarque, au même endroit.</p><button className="link" onClick={() => go("signup")}>Vous êtes commerçant ? Inscrire mon commerce</button><DemoLink /></div>
         <p className="muted small">Prix et disponibilités sont déclarés par les commerçants. Les produits réservés sont mis de côté et réglés directement en magasin. Contact : <a href="mailto:contact@arrivagenc.com">contact@arrivagenc.com</a></p>
       </footer>
       <nav className="bottomnav show-md">
@@ -112,6 +115,11 @@ function ConsumerShell({ route, go }: any) {
       </Modal>
     </div>
   );
+}
+
+function DemoLink() {
+  const d = useDemo();
+  return d.on ? null : <button className="link muted-link" onClick={() => d.setOn(true)}>Voir un aperçu avec des exemples</button>;
 }
 
 // ---------- Commerçant ----------
@@ -253,7 +261,7 @@ function App() {
     <NavCtx.Provider value={{ mode, route, go, back, setMode }}>
       <div className={cx("app", `mode-${mode}`, !(s.me && (s.me.role === "admin" || myMerchants(s).length > 0)) && "no-bar")}>
         <SpaceBar mode={mode} setMode={setMode} go={go} route={route} />
-        {mode === "consumer" && <ConsumerShell route={route} go={go} />}
+        {mode === "consumer" && <DemoProvider><ConsumerShell route={route} go={go} /></DemoProvider>}
         {mode === "merchant" && <MerchantShell route={route} go={go} />}
         {mode === "admin" && <AdminShell route={route} go={go} />}
         <Toasts />

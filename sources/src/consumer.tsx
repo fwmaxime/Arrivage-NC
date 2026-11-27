@@ -82,73 +82,6 @@ function Rail({ children }: any) {
   );
 }
 
-// ---------- En-tête consommateur ----------
-export function SearchBox({ autoFocus, onDone, initial = "" }: any) {
-  const { s, mutate } = useStore();
-  const { go } = useNav();
-  const cat = useCatalog();
-  const [q, setQ] = useState(initial);
-  const [open, setOpen] = useState(false);
-  useEffect(() => setQ(initial), [initial]);
-  const nq = norm(q.trim());
-  const sugg = useMemo(() => {
-    if (nq.length < 2) return null;
-    const hayOf = (p: Product) => productHay(p, s.merchants.find((m) => m.id === p.merchantId));
-    const prods = cat.map((p) => { const sc = matchScore(nq, hayOf(p)); return { p, sc: sc && sc + 0.4 * matchScore(nq, `${p.name} ${p.brand || ""}`) }; }).filter((x) => x.sc > 0).sort((a, b) => b.sc - a.sc).slice(0, 5).map((x) => x.p);
-    const fz = (t: string) => nq.length >= 3 && qWords(nq).length === 1 ? termScore(qWords(nq)[0], indexOf(t)).s >= 0.7 : norm(t).includes(nq);
-    const merchants = s.merchants.filter((m) => m.status === "active" && (norm(m.name + " " + m.tagline).includes(nq) || fz(m.name))).slice(0, 3);
-    const cats = CATEGORIES.filter((c) => norm(c.label).includes(nq) || fz(c.label)).slice(0, 3);
-    const brands = Array.from(new Set(cat.map((p) => p.brand))).filter((b) => b !== "Sans marque" && (norm(b).includes(nq) || fz(b))).slice(0, 3);
-    const fix = correct(nq, cat.map(hayOf));
-    return { prods, merchants, cats, brands, fix };
-  }, [nq, cat, s.merchants]);
-  const submit = (val = q) => {
-    const v = val.trim();
-    if (v) mutate((d) => { const k = v.toLowerCase(); d.searchLog[k] = (d.searchLog[k] || 0) + 1; });
-    setOpen(false); onDone?.();
-    go("explore", { q: v });
-  };
-  return (
-    <div className="search">
-      <Search size={18} className="search-ico" />
-      <input
-        id="global-search" autoFocus={autoFocus} value={q} placeholder="Produit, marque, commerce, mot-clé…"
-        onChange={(e) => { setQ(e.target.value); setOpen(true); }} onFocus={() => setOpen(true)}
-        onBlur={() => setTimeout(() => setOpen(false), 160)}
-        onKeyDown={(e) => { if (e.key === "Enter") submit(); if (e.key === "Escape") setOpen(false); }}
-        aria-label="Rechercher"
-      />
-      {q && <button className="search-clear" onClick={() => { setQ(""); }} aria-label="Effacer"><X size={15} /></button>}
-      {open && sugg && (
-        <div className="sugg">
-          {!sugg.prods.length && !sugg.merchants.length && !sugg.cats.length && (
-            <div className="sugg-empty">
-              Aucun produit pour « {q} » pour l'instant.
-              <button className="link" onMouseDown={() => go("alerts", { create: { query: q } })}>Créer une alerte <ArrowUpRight size={14} /></button>
-            </div>
-          )}
-          {sugg.fix && <button className="sugg-fix" onMouseDown={() => submit(sugg.fix!)}><Sparkles size={15} /> <span>Vouliez-vous dire <b>{sugg.fix}</b> ?</span></button>}
-          {sugg.cats.map((c) => (
-            <button key={c.id} className="sugg-row" onMouseDown={() => { go("explore", { cat: c.id }); onDone?.(); }}><c.icon size={16} /> <span>{c.label}</span><em>Catégorie</em></button>
-          ))}
-          {sugg.brands.map((b) => (
-            <button key={b} className="sugg-row" onMouseDown={() => submit(b)}><Search size={16} /> <span>{b}</span><em>Marque</em></button>
-          ))}
-          {sugg.merchants.map((m) => (
-            <button key={m.id} className="sugg-row" onMouseDown={() => { go("merchant", { id: m.id }); onDone?.(); }}><MerchantLogo m={m} size={22} /> <span>{m.name}</span><em>Commerce · {m.commune}</em></button>
-          ))}
-          {sugg.prods.map((p) => (
-            <button key={p.id} className="sugg-row" onMouseDown={() => { go("product", { id: p.id }); onDone?.(); }}>
-              <span className="sugg-thumb"><ProductVisual p={p} /></span><span>{p.name}</span><em>{fmtXPF(p.price)}</em>
-            </button>
-          ))}
-          {q.trim() && <button className="sugg-all" onMouseDown={() => submit()}>Voir tous les résultats pour « {q} »</button>}
-        </div>
-      )}
-    </div>
-  );
-}
-
 export function NotificationsPanel({ open, onClose }: any) {
   const { s, mutate } = useStore();
   const { go } = useNav();
@@ -197,163 +130,28 @@ export function LocationPicker({ open, onClose }: any) {
   );
 }
 
-// ---------- Accueil ----------
-export function Home() {
-  const { s } = useStore();
-  const { go } = useNav();
-  const cat = useCatalog();
-  const featured = useMemo(() => {
-    const f = cat.filter((p) => p.featured || p.sponsored);
-    return (f.length ? f : cat).slice().sort((a, b) => Number(b.sponsored) - Number(a.sponsored) || +new Date(b.publishedAt) - +new Date(a.publishedAt)).slice(0, 5);
-  }, [cat]);
-  const [hi, setHi] = useState(0);
-  useEffect(() => { const t = setInterval(() => setHi((x) => (x + 1) % Math.max(featured.length, 1)), 7000); return () => clearInterval(t); }, [featured.length]);
-  const hero = featured[hi % Math.max(featured.length, 1)];
-  const heroM = hero && s.merchants.find((m) => m.id === hero.merchantId);
-
-  const today = cat.filter((p) => p.status !== "soon" && Date.now() - +new Date(p.publishedAt) < 36 * 3600e3).sort((a, b) => +new Date(b.publishedAt) - +new Date(a.publishedAt));
-  const popular = cat.filter((p) => p.status !== "soon").sort((a, b) => popularity(b, s.favorites) - popularity(a, s.favorites)).slice(0, 10);
-  const soon = cat.filter((p) => p.status === "soon").sort((a, b) => +new Date(a.arrivedAt) - +new Date(b.arrivedAt));
-  const recos = cat.filter((p) => s.profile.interests.includes(p.category) && p.status !== "out").sort((a, b) => {
-    const ma = s.merchants.find((m) => m.id === a.merchantId)?.commune === s.profile.commune ? 1 : 0;
-    const mb = s.merchants.find((m) => m.id === b.merchantId)?.commune === s.profile.commune ? 1 : 0;
-    return mb - ma || +new Date(b.publishedAt) - +new Date(a.publishedAt);
-  }).slice(0, 8);
-  const merchants = s.merchants.filter((m) => m.status === "active").sort((a, b) => Number(s.follows.includes(a.id)) - Number(s.follows.includes(b.id)) || b.followersBase - a.followersBase).slice(0, 8);
-  const weekCount = cat.filter((p) => Date.now() - +new Date(p.publishedAt) < 7 * 864e5).length;
-
-  return (
-    <div className="page home">
-      {hero && heroM && (
-        <section className="hero">
-          <div className="hero-text">
-            <div className="hero-eyebrow">
-              {hero.sponsored ? <span className="sponso sponso-inline">Sponsorisé</span> : <span className="eyebrow">À la une</span>}
-              <StatusPill status={hero.status} />
-            </div>
-            <h1>{hero.name}</h1>
-            <p className="hero-sub">Chez <button className="link-strong" onClick={() => go("merchant", { id: heroM.id })}>{heroM.name}</button> à {heroM.commune} · publié {fmtRel(hero.publishedAt)}</p>
-            <div className="hero-price">{fmtXPF(hero.price)}{hero.qty ? <span> · {hero.qty} en stock déclarés</span> : null}</div>
-            <div className="hero-cta">
-              <Btn variant="accent" size="lg" onClick={() => go("product", { id: hero.id })}>Voir l'arrivage</Btn>
-              <Btn variant="ghost-light" size="lg" icon={BellRing} onClick={() => go("alerts", { create: { query: hero.name, category: hero.category } })}>Créer une alerte</Btn>
-            </div>
-            <div className="hero-dots">
-              {featured.map((f, i) => <button key={f.id} className={cx(i === hi % featured.length && "is-on")} onClick={() => setHi(i)} aria-label={`Voir ${f.name}`} />)}
-            </div>
-          </div>
-          <div className="hero-visual" onClick={() => go("product", { id: hero.id })}>
-            <ProductVisual p={hero} key={hero.id} className="hero-pv" />
-          </div>
-        </section>
-      )}
-
-      {!hero && (
-        <section className="hero hero-welcome">
-          <div className="hero-text">
-            <div className="hero-eyebrow"><span className="eyebrow">Nouvelle-Calédonie</span></div>
-            <h1>Tout ce qui débarque, au même endroit.</h1>
-            <p className="hero-sub">Les commerces calédoniens annoncent ici leurs arrivages. Suivez vos boutiques préférées, créez une alerte et soyez prévenu dès que le produit que vous attendez arrive.</p>
-            <div className="hero-cta">
-              <Btn variant="accent" size="lg" icon={BellRing} onClick={() => go("alerts", {})}>Créer une alerte</Btn>
-              <Btn variant="ghost-light" size="lg" icon={Store} onClick={() => go("signup")}>Inscrire mon commerce</Btn>
-            </div>
-          </div>
-        </section>
-      )}
-
-      <div className="tagline-strip">
-        <span><strong>{weekCount}</strong> arrivages publiés cette semaine</span>
-        <span><strong>{s.merchants.filter((m) => m.status === "active").length}</strong> commerce{s.merchants.filter((m) => m.status === "active").length > 1 ? "s" : ""} sur ARRIVAGE</span>
-        <span className="hide-sm">Le Caillou, toujours à jour.</span>
-      </div>
-
-      <section className="sec">
-        <SectionHead title="Catégories" action={<button className="link" onClick={() => go("explore", {})}>Tout explorer <ChevronRight size={15} /></button>} />
-        <div className="cats">
-          {CATEGORIES.filter((c) => s.categories.find((x) => x.id === c.id)?.active).map((c) => {
-            const n = cat.filter((p) => p.category === c.id).length;
-            return (
-              <button key={c.id} className="cat" onClick={() => go("explore", { cat: c.id })}>
-                <span className="cat-ico" style={{ background: c.tint }}><c.icon size={20} strokeWidth={1.7} /></span>
-                <span className="cat-l">{c.label}</span>
-                <span className="cat-n">{n}</span>
-              </button>
-            );
-          })}
-        </div>
-      </section>
-
-      <section className="sec">
-        <SectionHead title="Arrivés aujourd'hui" sub="Publiés par les commerçants ces dernières heures" action={<button className="link" onClick={() => go("explore", { date: "24h" })}>Voir tout <ChevronRight size={15} /></button>} />
-        {today.length ? <Rail>{today.map((p) => <ProductCard key={p.id} p={p} />)}</Rail> : <Empty icon={Package} title="Pas encore d'arrivage aujourd'hui" body="Revenez plus tard ou explorez le catalogue." />}
-      </section>
-
-      {recos.length > 0 && (
-        <section className="sec">
-          <SectionHead title="Sélectionné pour vous" sub={`D'après vos centres d'intérêt${s.profile.commune ? " et votre commune (" + s.profile.commune + ")" : ""}`} action={<button className="link" onClick={() => go("profile")}>Modifier mes intérêts <ChevronRight size={15} /></button>} />
-          <Rail>{recos.map((p) => <ProductCard key={p.id} p={p} />)}</Rail>
-        </section>
-      )}
-
-      <section className="sec">
-        <SectionHead title="Les plus suivis" sub="Vues, favoris et demandes de contact" action={<button className="link" onClick={() => go("explore", { sort: "popular" })}>Voir tout <ChevronRight size={15} /></button>} />
-        {popular.length ? <div className="grid">{popular.slice(0, 8).map((p) => <ProductCard key={p.id} p={p} />)}</div> : <Empty icon={Package} title="Les premiers arrivages arrivent bientôt" body="Les commerces partenaires publient leurs nouveautés ici. Créez une alerte pour être prévenu." />}
-      </section>
-
-      <section className="sec">
-        <SectionHead title="Prochains arrivages" sub="Annoncés par les commerçants, dates indicatives" />
-        {soon.length ? (
-          <div className="soon-list">
-            {soon.map((p) => {
-              const m = s.merchants.find((x) => x.id === p.merchantId)!;
-              return (
-                <button key={p.id} className="soon" onClick={() => go("product", { id: p.id })}>
-                  <div className="soon-date"><span>{new Date(p.arrivedAt).toLocaleDateString("fr-FR", { weekday: "short" })}</span><strong>{new Date(p.arrivedAt).getDate()}</strong><span>{new Date(p.arrivedAt).toLocaleDateString("fr-FR", { month: "short" })}</span></div>
-                  <div className="soon-thumb"><ProductVisual p={p} /></div>
-                  <div className="soon-main"><strong>{p.name}</strong><span>{m.name} · {m.commune}</span></div>
-                  <span className="price">{fmtXPF(p.price)}</span>
-                </button>
-              );
-            })}
-          </div>
-        ) : <Empty icon={Calendar} title="Aucun arrivage annoncé" />}
-      </section>
-
-      <section className="sec">
-        <SectionHead title="Commerces à découvrir" action={<button className="link" onClick={() => go("merchants")}>Annuaire <ChevronRight size={15} /></button>} />
-        <Rail>{merchants.map((m) => <MerchantCard key={m.id} m={m} />)}</Rail>
-      </section>
-
-      <section className="sec alert-cta">
-        <div>
-          <h2>Vous cherchez un produit introuvable ?</h2>
-          <p>Créez une alerte. Dès qu'un commerce publie un produit correspondant, vous êtes prévenu.</p>
-        </div>
-        <Btn variant="accent" size="lg" icon={BellRing} onClick={() => go("alerts", { create: {} })}>Créer une alerte</Btn>
-      </section>
-    </div>
-  );
-}
-
 // ---------- Explorer ----------
 const DATE_OPTS = [{ v: "all", l: "Toutes dates" }, { v: "24h", l: "24 h" }, { v: "7d", l: "7 jours" }, { v: "30d", l: "30 jours" }];
-type SearchTab = "products" | "shops" | "brands";
+type SearchTab = "all" | "products" | "shops" | "brands";
 const SORT_OPTS = [{ v: "relevance", l: "Pertinence" }, { v: "recent", l: "Plus récents" }, { v: "popular", l: "Popularité" }, { v: "priceAsc", l: "Prix croissant" }, { v: "priceDesc", l: "Prix décroissant" }];
-const emptyFilters = { cats: [] as string[], communes: [] as string[], statuses: [] as string[], min: "", max: "", date: "all", sort: "recent", onlyNew: false, tryOn: false };
+const emptyFilters = { cats: [] as string[], communes: [] as string[], statuses: [] as string[], min: "", max: "", date: "all", sort: "recent", onlyNew: false, tryOn: false, inStock: false };
+const filtersFrom = (params: any) => ({
+  ...emptyFilters, cats: params?.cat ? [params.cat] : [], communes: params?.commune ? [params.commune] : [], statuses: params?.status ? [params.status] : [],
+  date: params?.date || "all", sort: params?.sort || (params?.q ? "relevance" : "recent"), inStock: !!params?.stock, tryOn: !!params?.tryOn,
+});
 
 export function Explore({ params }: any) {
   const { s } = useStore();
   const { go } = useNav();
   const cat = useCatalog();
   const [q, setQ] = useState(params?.q || "");
-  const [f, setF] = useState(() => ({ ...emptyFilters, cats: params?.cat ? [params.cat] : [], date: params?.date || "all", sort: params?.sort || (params?.q ? "relevance" : "recent") }));
+  const [f, setF] = useState(() => filtersFrom(params));
   const [sheet, setSheet] = useState(false);
   // Type de résultat : null = choisi automatiquement (le premier onglet qui a des résultats)
   const [tab, setTab] = useState<SearchTab | null>(params?.tab || null);
   useEffect(() => {
     setQ(params?.q || ""); setTab(params?.tab || null);
-    setF({ ...emptyFilters, cats: params?.cat ? [params.cat] : [], date: params?.date || "all", sort: params?.sort || (params?.q ? "relevance" : "recent") });
+    setF(filtersFrom(params));
   }, [params]);
 
   const toggle = (k: "cats" | "communes" | "statuses", v: string) => setF((x) => ({ ...x, [k]: x[k].includes(v) ? x[k].filter((y) => y !== v) : [...x[k], v] }));
@@ -372,6 +170,7 @@ export function Explore({ params }: any) {
       if (!priceErr && max != null && p.price > max) return false;
       if (f.onlyNew && !["today", "new"].includes(p.status)) return false;
       if (f.tryOn && !p.tryOn) return false;
+      if (f.inStock && (p.status === "out" || p.status === "soon")) return false;
       if (f.date !== "all") {
         const lim = { "24h": 1, "7d": 7, "30d": 30 }[f.date as "24h"] * 864e5;
         if (Date.now() - +new Date(p.publishedAt) > lim) return false;
@@ -406,12 +205,15 @@ export function Explore({ params }: any) {
       .filter((b) => b.sc > 0).sort((a, b) => b.sc - a.sc || b.prods.length - a.prods.length || a.name.localeCompare(b.name));
   }, [q, cat]);
   // Si la recherche ressemble au nom d'un commerce (« pixel lagn »), on ouvre directement l'onglet Commerces
-  const shopHit = !!q.trim() && shops.some((m) => matchScore(norm(q.trim()), m.name) >= 0.8);
-  const view: SearchTab = tab || (shopHit ? "shops" : !q.trim() || results.length ? "products" : shops.length ? "shops" : brands.length ? "brands" : "products");
+  // Avec une recherche, l'onglet « Tout » regroupe commerces, marques et produits (comme un moteur de recherche)
+  const hasQ = !!q.trim();
+  const view: SearchTab = tab === "all" && !hasQ ? "products" : tab || (hasQ ? "all" : "products");
+  const topShops = hasQ ? shops.filter((m) => matchScore(norm(q.trim()), `${m.name} ${m.tagline}`) >= 0.6).slice(0, 3) : [];
+  const topBrands = hasQ ? brands.filter((b) => b.sc >= 0.7).slice(0, 6) : [];
   const openBrand = (b: string) => { setQ(b); setTab("products"); window.scrollTo({ top: 0 }); };
 
   const fix = useMemo(() => q.trim() ? correct(q, cat.map((p) => productHay(p, s.merchants.find((m) => m.id === p.merchantId)))) : null, [q, cat, s.merchants]);
-  const activeCount = f.cats.length + f.communes.length + f.statuses.length + (f.min ? 1 : 0) + (f.max ? 1 : 0) + (f.date !== "all" ? 1 : 0) + (f.onlyNew ? 1 : 0) + (f.tryOn ? 1 : 0);
+  const activeCount = f.cats.length + f.communes.length + f.statuses.length + (f.min ? 1 : 0) + (f.max ? 1 : 0) + (f.date !== "all" ? 1 : 0) + (f.onlyNew ? 1 : 0) + (f.tryOn ? 1 : 0) + (f.inStock ? 1 : 0);
   const reset = () => { setF({ ...emptyFilters }); setQ(""); };
 
   const panel = (
@@ -430,6 +232,7 @@ export function Explore({ params }: any) {
         <span className="fgroup-l">Date d'arrivage</span>
         <div className="chips-wrap">{DATE_OPTS.map((o) => <Chip key={o.v} active={f.date === o.v} onClick={() => setF({ ...f, date: o.v })}>{o.l}</Chip>)}</div>
       </div>
+      <label className="switch-row"><input type="checkbox" checked={f.inStock} onChange={(e) => setF({ ...f, inStock: e.target.checked })} /><span className="switch" /> En stock uniquement</label>
       <label className="switch-row"><input type="checkbox" checked={f.onlyNew} onChange={(e) => setF({ ...f, onlyNew: e.target.checked })} /><span className="switch" /> Nouveautés uniquement</label>
       <label className="switch-row"><input type="checkbox" checked={!!f.tryOn} onChange={(e) => setF({ ...f, tryOn: e.target.checked })} /><span className="switch" /> Essayable en magasin</label>
       <div className="fgroup">
@@ -460,13 +263,40 @@ export function Explore({ params }: any) {
         </div>
       </div>
       <div className="rtabs" role="tablist" aria-label="Type de résultat">
-        {([["products", "Produits", Package, results.length], ["shops", "Commerces", Store, shops.length], ["brands", "Marques", Tag, brands.length]] as const).map(([id, l, Ic, n]) => (
+        {([...(hasQ ? [["all", "Tout", Search, results.length + shops.length]] : []), ["products", "Produits", Package, results.length], ["shops", "Commerces", Store, shops.length], ["brands", "Marques", Tag, brands.length]] as [SearchTab, string, any, number][]).map(([id, l, Ic, n]) => (
           <button key={id} role="tab" aria-selected={view === id} className={cx("rtab", view === id && "is-on")} onClick={() => setTab(id)}>
             <Ic size={16} /> {l} <span className="rtab-n">{n}</span>
           </button>
         ))}
       </div>
-      {view === "products" && <>
+      {view === "all" && (topShops.length > 0 || topBrands.length > 0) && (
+        <div className="all-top">
+          {topShops.length > 0 && <div className="all-block">
+            <div className="all-head"><Store size={15} /> Commerces <button className="link" onClick={() => setTab("shops")}>Tous ({shops.length}) <ChevronRight size={14} /></button></div>
+            <div className="all-shops">{topShops.map((m) => (
+              <button key={m.id} className="all-shop" onClick={() => go("merchant", { id: m.id })}>
+                <MerchantLogo m={m} size={40} />
+                <span><b>{m.name}</b><small>{m.tagline} · {m.commune}</small></span>
+                <ChevronRight size={16} />
+              </button>))}</div>
+          </div>}
+          {topBrands.length > 0 && <div className="all-block">
+            <div className="all-head"><Tag size={15} /> Marques <button className="link" onClick={() => setTab("brands")}>Toutes ({brands.length}) <ChevronRight size={14} /></button></div>
+            <div className="chips-wrap">{topBrands.map((b) => <button key={b.name} className="qchip" onClick={() => openBrand(b.name)}>{b.name}<span>{b.prods.length}</span></button>)}</div>
+          </div>}
+        </div>
+      )}
+      {(view === "products" || view === "all") && <>
+      <div className="quick-strip">
+        <Chip active={f.inStock} onClick={() => setF({ ...f, inStock: !f.inStock })}>En stock</Chip>
+        <select className="select select-chip" value={f.communes.length === 1 ? f.communes[0] : ""} onChange={(e) => setF({ ...f, communes: e.target.value ? [e.target.value] : [] })} aria-label="Commune">
+          <option value="">Toutes les communes</option>
+          {COMMUNES.map((c) => <option key={c} value={c}>{c}</option>)}
+        </select>
+        <Chip active={f.date === "24h"} onClick={() => setF({ ...f, date: f.date === "24h" ? "all" : "24h" })}>Arrivé en 24 h</Chip>
+        <Chip active={f.statuses.includes("soon")} onClick={() => toggle("statuses", "soon")}>Bientôt disponible</Chip>
+        <Chip active={!!f.tryOn} onClick={() => setF({ ...f, tryOn: !f.tryOn })}>Essayable</Chip>
+      </div>
       <div className="cat-strip">
         <Chip active={!f.cats.length} onClick={() => setF({ ...f, cats: [] })}>Toutes</Chip>
         {CATEGORIES.map((c) => <Chip key={c.id} icon={c.icon} active={f.cats.includes(c.id)} onClick={() => toggle("cats", c.id)}>{c.label}</Chip>)}
@@ -493,7 +323,7 @@ export function Explore({ params }: any) {
         </div>
       </div>
       </>}
-      {view !== "products" && fix && (view === "shops" ? shops : brands).length > 0 && <div className="search-fix"><Sparkles size={16} /><span>Résultats pour « <b>{fix}</b> ». Vous avez tapé « {q.trim()} ».</span></div>}
+      {view !== "products" && view !== "all" && fix && (view === "shops" ? shops : brands).length > 0 && <div className="search-fix"><Sparkles size={16} /><span>Résultats pour « <b>{fix}</b> ». Vous avez tapé « {q.trim()} ».</span></div>}
       {view === "shops" && (shops.length
         ? <><p className="muted rtab-count"><strong className="fg">{shops.length}</strong> commerce{shops.length > 1 ? "s" : ""}{q.trim() ? ` pour « ${q.trim()} »` : ""}</p><div className="grid grid-m">{shops.map((m) => <MerchantCard key={m.id} m={m} />)}</div></>
         : <Empty icon={Store} title="Aucun commerce ne correspond" body={`Aucun commerce ne s'appelle « ${q.trim()} » ou ne vend ce type de produits.`} action={<Btn variant="outline" onClick={() => setTab("products")}>Voir les produits</Btn>} />)}
