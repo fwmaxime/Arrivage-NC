@@ -12,6 +12,7 @@ import { RatingBadge, ReviewsBlock } from "./reviews";
 import { AccountSection } from "./auth";
 import { dealState, dealVisible, dealBadge, dealTitle, dealWhen, dealPeriod, isRestoProduct, pctOff } from "./deals";
 import { Btn, IconBtn, StatusPill, Chip, ProductVisual, MerchantLogo, MerchantCover, Modal, Empty, SectionHead, Segmented, Field, DemoTag, cx } from "./ui";
+import { shareUrl } from "./url";
 
 // ---------- Sélecteurs ----------
 export function useCatalog() {
@@ -416,6 +417,12 @@ export function ProductPage({ params }: any) {
   const copy = async (txt: string, msg: string) => {
     try { await navigator.clipboard.writeText(txt); toast(msg); } catch { toast("Copie impossible ici : sélectionnez le texte manuellement", "warn"); }
   };
+  // Sur téléphone : feuille de partage du système (Messenger, WhatsApp, SMS…). Sinon : copie du texte avec le lien.
+  const share = async (text: string, url: string) => {
+    const nav: any = navigator;
+    if (nav.share && matchMedia("(pointer: coarse)").matches) { try { await nav.share({ title: p.name, text, url }); return; } catch (e: any) { if (e?.name === "AbortError") return; } }
+    copy(`${text}\n${url}`, "Lien du produit copié");
+  };
 
   return (
     <div className="page product">
@@ -483,7 +490,7 @@ export function ProductPage({ params }: any) {
             <Btn size="lg" variant="outline" icon={BellRing} onClick={() => go("alerts", { create: { query: p.name, category: p.category, brand: p.brand } })}>Créer une alerte</Btn>
             <div className="row">
               <FavButtonLabeled id={p.id} />
-              <Btn variant="ghost" icon={Share2} onClick={() => copy(`${p.deal ? dealTitle(p) + " : " : ""}${p.name} — ${p.price ? fmtXPF(p.price) : p.deal?.discount || ""}${p.deal ? " (" + dealWhen(p).toLowerCase() + ")" : ""} chez ${m.name} (${m.commune}) · vu sur ARRIVAGE`, "Texte de partage copié")}>Partager</Btn>
+              <Btn variant="ghost" icon={Share2} onClick={() => share(`${p.deal ? dealTitle(p) + " : " : ""}${p.name} — ${p.price ? fmtXPF(p.price) : p.deal?.discount || ""}${p.deal ? " (" + dealWhen(p).toLowerCase() + ")" : ""} chez ${m.name} (${m.commune}) · vu sur ARRIVAGE`, shareUrl({ name: "product", params: { id: p.id } }))}>Partager</Btn>
               <Btn variant="ghost" icon={Flag} onClick={() => !requireAccount("Connectez-vous pour signaler une publication à la modération.") ? null : s.profile.blocked ? toast("Votre compte a été bloqué par la modération : vous ne pouvez plus envoyer de signalement", "warn") : setReport(true)}>Signaler</Btn>
             </div>
           </div>
@@ -797,7 +804,7 @@ export function MerchantPage({ params }: any) {
             <p className="muted">{m.tagline} · {m.commune} · {followers.toLocaleString("fr-FR")} abonnés</p>
             <RatingBadge merchantId={m.id} />
           </div>
-          <FollowBtn m={m} size="md" />
+          <div className="row"><FollowBtn m={m} size="md" /><IconBtn icon={Share2} label="Partager ce commerce" onClick={async () => { const url = shareUrl({ name: "merchant", params: { id: m.id } }); const nav: any = navigator; if (nav.share && matchMedia("(pointer: coarse)").matches) { try { await nav.share({ title: m.name, text: `${m.name} sur ARRIVAGE`, url }); return; } catch (e: any) { if (e?.name === "AbortError") return; } } try { await navigator.clipboard.writeText(url); toast("Lien du commerce copié"); } catch { toast("Copie impossible ici", "warn"); } }} /></div>
         </div>
       </div>
       <div className="mdetail">

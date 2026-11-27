@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import { toHash, fromHash } from "./url";
 import { createRoot } from "react-dom/client";
 import { Home as HomeI, Compass, BellRing, Heart, Store, Bell, User, MapPin, LayoutDashboard, Package, Plus, Target, Crown, Settings, Calculator, Users, Flag, Layers, ShieldCheck, RotateCcw, Search, X, ChevronDown, Ban, Palette, ShoppingBag, Map as MapIco, Star, FileSpreadsheet, Users as UsersIco } from "lucide-react";
 import { TeamPage, ActAsBanner, NoAccess } from "./team";
@@ -238,27 +239,64 @@ function AdminShell({ route, go }: any) {
 }
 
 function App() {
-  const [ui, setUi] = useState(loadUI);
-  const [hist, setHist] = useState<Record<string, Route[]>>({ consumer: [], merchant: [], admin: [] });
+  // Au chargement, l'adresse (#/produit/…) prime ; sans adresse, on arrive sur l'accueil client.
+  const [ui, setUi] = useState<any>(() => {
+    const u = loadUI();
+    const h = fromHash(location.hash);
+    return h ? { mode: h.mode, routes: { ...u.routes, [h.mode]: h.route } } : { mode: "consumer", routes: { ...u.routes, consumer: DEFAULT_ROUTE.consumer } };
+  });
   useEffect(() => { try { localStorage.setItem(UI_KEY, JSON.stringify(ui)); } catch {} }, [ui]);
   const { s } = useStore();
   const allowed = (m: Mode) => m === "consumer" || (m === "admin" ? s.me?.role === "admin" : !!s.me && (s.me.role === "admin" || myMerchants(s).length > 0 || m === "merchant"));
   const mode: Mode = s.ready && allowed(ui.mode) ? ui.mode : "consumer";
   const route: Route = ui.routes[mode] || DEFAULT_ROUTE[mode];
-  const go = (name: string, params?: any) => {
-    setHist((h) => ({ ...h, [mode]: [...(h[mode] || []).slice(-30), route] }));
-    setUi((u: any) => ({ ...u, routes: { ...u.routes, [mode]: { name, params } } }));
+  // Historique du navigateur : chaque changement de page ajoute une entrée, le bouton retour (navigateur ou téléphone) revient à la page précédente.
+  const nextNav = useRef<"push" | "replace">("replace");
+  const pendingScroll = useRef<number | null>(null);
+  const navigate = (fn: (u: any) => any) => {
+    try { history.replaceState({ ...(history.state || {}), scroll: window.scrollY }, ""); } catch {}
+    nextNav.current = "push";
+    setUi(fn);
     window.scrollTo({ top: 0, behavior: "instant" as any });
   };
+  const go = (name: string, params?: any) => navigate((u: any) => ({ ...u, routes: { ...u.routes, [mode]: { name, params } } }));
+  const setMode = (m: Mode, r?: Route) => navigate((u: any) => ({ mode: m, routes: { ...u.routes, ...(r ? { [m]: r } : {}) } }));
   const back = () => {
-    const h = hist[mode] || [];
-    const prev = h[h.length - 1] || DEFAULT_ROUTE[mode];
-    setHist((x) => ({ ...x, [mode]: h.slice(0, -1) }));
-    setUi((u: any) => ({ ...u, routes: { ...u.routes, [mode]: prev } }));
+    if ((history.state?.depth || 0) > 0) { history.back(); return; }
+    nextNav.current = "replace";
+    setUi((u: any) => ({ ...u, routes: { ...u.routes, [mode]: DEFAULT_ROUTE[mode] } }));
+    window.scrollTo({ top: 0 });
   };
+  useEffect(() => {
+    if (!s.ready) return; // attendre de savoir qui est connecté avant de réécrire l'adresse (sinon un lien #/admin/… serait perdu)
+    const h = toHash(mode, route);
+    const kind = nextNav.current; nextNav.current = "replace";
+    if ((location.hash || "#/") === h) return;
+    const url = h === "#/" ? location.pathname + location.search : h; // accueil : adresse propre, sans « #/ »
+    try {
+      if (kind === "push") history.pushState({ depth: (history.state?.depth || 0) + 1 }, "", url);
+      else history.replaceState({ ...(history.state || {}), depth: history.state?.depth || 0 }, "", url);
+    } catch {}
+  }, [s.ready, mode, route, ui]);
+  useEffect(() => {
+    try { history.scrollRestoration = "manual"; } catch {}
+    const onPop = () => {
+      const h = fromHash(location.hash);
+      const target = h || { mode: "consumer" as Mode, route: DEFAULT_ROUTE.consumer };
+      nextNav.current = "replace";
+      pendingScroll.current = typeof history.state?.scroll === "number" ? history.state.scroll : 0;
+      setUi((u: any) => ({ mode: target.mode, routes: { ...u.routes, [target.mode]: target.route } }));
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+  useEffect(() => {
+    if (pendingScroll.current == null) return;
+    const y = pendingScroll.current; pendingScroll.current = null;
+    requestAnimationFrame(() => requestAnimationFrame(() => window.scrollTo({ top: y, behavior: "instant" as any })));
+  }, [ui]);
   useApplyTheme(mode);
   const standby = useStandby();
-  const setMode = (m: Mode, r?: Route) => { setUi((u: any) => ({ mode: m, routes: { ...u.routes, ...(r ? { [m]: r } : {}) } })); window.scrollTo({ top: 0 }); };
   if (standby.loading) return <StandbySplash />;
   if (standby.gate) return <NavCtx.Provider value={{ mode, route, go, back, setMode }}><StandbyPage /><Toasts /><AuthModal /></NavCtx.Provider>;
   return (
