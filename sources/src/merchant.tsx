@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { shareUrl } from "./url";
 import {
   FileSpreadsheet,
   Eye, Heart, MousePointerClick, Users, BellRing, Package, Plus, Pencil, Copy, Trash2, Zap, Ban, Lock, Crown, Check, ImagePlus,
@@ -736,7 +737,7 @@ export function ShopProfile() {
   };
   return (
     <div className="page narrow">
-      <div className="page-head"><div><h1 className="page-title">Ma fiche commerçant</h1><p className="muted">Ces informations apparaissent dans l'annuaire et sur chaque fiche produit.</p></div></div>
+      <div className="page-head"><div><h1 className="page-title">Ma fiche commerçant</h1><p className="muted">Ces informations apparaissent dans l'annuaire et sur chaque fiche produit.</p></div><Btn variant="outline" size="sm" icon={Copy} onClick={async () => { try { await navigator.clipboard.writeText(shareUrl({ name: "merchant", params: { id: me.id } })); toast("Lien de votre page copié : collez-le sur Facebook, Instagram ou votre fiche Google"); } catch { toast("Copie impossible ici", "warn"); } }}>Copier le lien de ma page</Btn></div>
       <form className="form panel" onSubmit={save} noValidate>
         <div className="row" style={{ gap: 16 }}>
           <MerchantLogo m={{ ...me, logo: f.logo, color: f.color }} size={64} />

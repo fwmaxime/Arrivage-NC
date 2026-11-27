@@ -36,3 +36,4 @@ git mv -f demo-x7q4/index.html index.html && git commit -m "Remise en ligne du p
 - Côté client : annoncée « Bientôt » jusqu'à 14 jours avant, visible pendant la période, puis masquée automatiquement. Recherche « promo », filtre « Promos et offres », sections d'accueil « Promos et offres du moment » et « Côté restaurants ».
 - Les publications **sponsorisées** (forfait Premium) et « À la une » (admin) apparaissent dans le bandeau « À la une » juste sous la barre de recherche de l'accueil, et jusqu'à 2 en tête des résultats de recherche.
 - Aucune modification de la base Supabase : l'offre est enregistrée dans la publication (champ `deal`).
+- **Adresses des pages** : chaque écran a son adresse (`#/produit/<id>`, `#/commerce/<id>`, `#/recherche?q=…`, `#/pro/publications`, `#/admin/signalements`…), gérée dans `sources/src/url.ts`. Le bouton retour du navigateur et du téléphone revient à la page précédente, et « Partager » envoie le lien du produit.
