@@ -32,7 +32,8 @@ export function StandbyPage() {
   );
 }
 
-export const StandbySplash = () => <div className="standby" aria-busy="true" />;
+// Même écran que celui affiché avant le démarrage du site (voir build.sh) : pas de clignotement au lancement de l'appli installée
+export const StandbySplash = () => <div className="boot" aria-busy="true"><div className="boot-logo">arrivage<span>.</span></div></div>;
 
 // Bandeau rappel pour les admins pendant le stand-by
 export function StandbyAdminBar({ go }: { go?: () => void }) {

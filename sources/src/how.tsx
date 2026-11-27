@@ -54,6 +54,7 @@ const FAQ_CLIENT = [
   ["Comment j'achète un produit ?", "Si le commerçant propose le paiement en ligne, le bouton « Acheter » vous emmène sur sa page de paiement : vous payez directement le commerce. Sinon, contactez-le ou passez en magasin."],
   ["ARRIVAGE prend une commission sur mes achats ?", "Non. ARRIVAGE ne touche pas l'argent : vous payez le commerçant directement, au même prix qu'en boutique."],
   ["Les prix et les stocks sont-ils fiables ?", "Ils sont déclarés par les commerçants, avec la date de mise à jour. En cas d'erreur, le bouton « Signaler » prévient notre équipe de modération."],
+  ["Existe-t-il une application ?", "L'application officielle arrive. En attendant, vous pouvez installer ARRIVAGE sur l'écran d'accueil de votre téléphone : sur iPhone, dans Safari, touchez Partager puis « Sur l'écran d'accueil » ; sur Android, dans Chrome, menu ⋮ puis « Installer l'application ». Le lien « Installer l'appli sur mon téléphone » en bas de page vous guide."],
   ["Comment marchent les alertes ?", "Indiquez ce que vous cherchez (produit, marque, budget, commune). Dès qu'un commerce publie un produit qui correspond, vous recevez une notification."],
 ];
 const FAQ_PRO = [

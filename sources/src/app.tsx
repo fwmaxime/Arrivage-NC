@@ -26,6 +26,7 @@ import { AdminMerchantDetail } from "./merchant-detail";
 import { MerchantReviews, AdminReviews } from "./reviews";
 import { MyReservations, MerchantReservations, AdminReservationsPanel } from "./reservations";
 import { ThemeProvider, ThemeSettings, useApplyTheme } from "./theme";
+import { InstallBanner, InstallLink } from "./install";
 import { useStandby, StandbyPage, StandbySplash, StandbyAdminBar } from "./standby";
 
 const UI_KEY = "arrivage-ui-v2";
@@ -110,13 +111,14 @@ function ConsumerShell({ route, go }: any) {
       <DemoBanner />
       <main className="cmain" key={route.name + JSON.stringify(route.params || {})}>{page}</main>
       <footer className="cfoot">
-        <div><Logo size={18} /><p>Tout ce qui débarque, au même endroit.</p><button className="link" onClick={() => go("how")}>Comment ça marche ?</button><button className="link" onClick={() => go("signup")}>Vous êtes commerçant ? Inscrire mon commerce</button><DemoLink /></div>
+        <div><Logo size={18} /><p>Tout ce qui débarque, au même endroit.</p><button className="link" onClick={() => go("how")}>Comment ça marche ?</button><button className="link" onClick={() => go("signup")}>Vous êtes commerçant ? Inscrire mon commerce</button><InstallLink /><DemoLink /></div>
         <LegalLinks className="cfoot-legal" />
         <p className="muted small">Prix et disponibilités sont déclarés par les commerçants. Contact : <a href="mailto:contact@arrivagenc.com">contact@arrivagenc.com</a></p>
       </footer>
       <nav className="bottomnav show-md">
         {links.filter((x: any) => !x.desk).map((x) => <button key={x.n} className={cx(isActive(x.n) && "is-on")} onClick={() => go(x.n, {})}><x.i size={20} strokeWidth={isActive(x.n) ? 2.3 : 1.8} /><span>{x.l}</span></button>)}
       </nav>
+      <InstallBanner />
       <NotificationsPanel open={notif} onClose={() => setNotif(false)} />
       <LocationPicker open={loc} onClose={() => setLoc(false)} />
       <Modal open={msearch} onClose={() => setMsearch(false)} title="Rechercher" side>
