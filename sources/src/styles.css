@@ -1741,3 +1741,14 @@ input[type="range"]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 4px 
 .invite-code { display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; border: 1px dashed var(--line-2); border-radius: 12px; margin-bottom: 10px; }
 .invite-code b { font-size: 22px; letter-spacing: .08em; }
 .invite-msg { width: 100%; font: inherit; font-size: 13px; border: 1px solid var(--line); border-radius: 10px; padding: 10px; background: var(--surface-2); color: inherit; resize: vertical; }
+
+/* Pages légales, consentement, suppression de compte */
+.legal h1 { display: flex; align-items: center; gap: 8px; }
+.legal h2 { font-size: 1.05rem; margin: 22px 0 6px; }
+.legal p, .legal li { line-height: 1.6; }
+.legal ul { padding-left: 20px; margin: 6px 0; }
+.legal-contact { display: flex; align-items: center; gap: 6px; margin-top: 26px; padding-top: 14px; border-top: 1px solid var(--line, rgba(0,0,0,.1)); }
+.cfoot-legal { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: .85rem; }
+.check-line { display: flex; gap: 8px; align-items: flex-start; font-size: .88rem; line-height: 1.45; cursor: pointer; }
+.check-line input { margin-top: 3px; flex: none; width: auto; }
+.danger-text { color: var(--danger); }

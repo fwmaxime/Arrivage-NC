@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { LegalPage, LegalLinks, type LegalTab } from "./legal";
 import { toHash, fromHash } from "./url";
 import { useBlockGate, BlockedPage } from "./blocked";
 import { HowPage } from "./how";
@@ -84,6 +85,7 @@ function ConsumerShell({ route, go }: any) {
       case "orders": return s.me ? <MyReservations /> : <NeedAccount title="Mes réservations" body="Connectez-vous pour voir et suivre vos réservations." />;
       case "how": return <HowPage />;
       case "join": return <JoinTeamPage params={route.params} />;
+      case "mentions": case "privacy": case "terms": return <LegalPage tab={route.name as LegalTab} />;
       case "theme": return <ThemeSettings />;
       default: return <Home />;
     }
@@ -109,6 +111,7 @@ function ConsumerShell({ route, go }: any) {
       <main className="cmain" key={route.name + JSON.stringify(route.params || {})}>{page}</main>
       <footer className="cfoot">
         <div><Logo size={18} /><p>Tout ce qui débarque, au même endroit.</p><button className="link" onClick={() => go("how")}>Comment ça marche ?</button><button className="link" onClick={() => go("signup")}>Vous êtes commerçant ? Inscrire mon commerce</button><DemoLink /></div>
+        <LegalLinks className="cfoot-legal" />
         <p className="muted small">Prix et disponibilités sont déclarés par les commerçants. Contact : <a href="mailto:contact@arrivagenc.com">contact@arrivagenc.com</a></p>
       </footer>
       <nav className="bottomnav show-md">

@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { toHash } from "./url";
 import { Plus, Check, X, Store, Info, Clock, ShieldCheck, UserPlus, Phone, Mail, MapPin, ChevronLeft } from "lucide-react";
 import { useStore, newId } from "./store";
 import { useNav } from "./nav";
@@ -219,9 +220,10 @@ export function MerchantSignup() {
   const [f, setF] = useState<F>(blank());
   const [err, setErr] = useState<Record<string, string>>({});
   const [done, setDone] = useState<Merchant | null>(null);
+  const [agree, setAgree] = useState(false);
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
-    const er = validate(f, s.merchants); setErr(er);
+    const er = validate(f, s.merchants); if (!agree) er.agree = "Acceptez les conditions pour envoyer la demande."; setErr(er);
     if (Object.keys(er).length) { toast("Vérifiez les champs signalés", "warn"); return; }
     const auto = !s.settings.manualApproval;
     const m = build(f, auto ? "active" : "pending", "inscription", s.me!.id);
@@ -247,6 +249,8 @@ export function MerchantSignup() {
       <p className="muted" style={{ margin: "4px 0 18px" }}>Rejoignez ARRIVAGE pour annoncer vos arrivages aux Calédoniens. {s.settings.manualApproval ? "Chaque inscription est vérifiée par l'équipe avant publication." : ""}</p>
       <form className="form panel" onSubmit={submit} noValidate>
         <MerchantFields f={f} setF={setF} err={err} />
+        <label className="check-line"><input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} /><span>Je certifie être autorisé(e) à représenter ce commerce et j'accepte les <a href={toHash("consumer", { name: "terms" })} target="_blank" rel="noopener">conditions d'utilisation</a>, notamment les engagements des commerçants (article 5).</span></label>
+        {err.agree && <p className="field-err">{err.agree}</p>}
         <div className="row-end"><Btn type="submit" icon={Store}>Envoyer ma demande</Btn></div>
       </form>
     </div>

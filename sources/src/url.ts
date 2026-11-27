@@ -7,7 +7,7 @@ const PREFIX: Record<Mode, string> = { consumer: "", merchant: "pro", admin: "ad
 
 // Nom interne de la page → mot affiché dans l'adresse (en français). Les pages absentes gardent leur nom interne.
 const SLUGS: Record<Mode, Record<string, string>> = {
-  consumer: { home: "", explore: "recherche", product: "produit", merchant: "commerce", merchants: "commerces", alerts: "alertes", favorites: "favoris", profile: "profil", signup: "inscrire-mon-commerce", how: "comment-ca-marche", orders: "mes-reservations", theme: "theme", join: "rejoindre-equipe" },
+  consumer: { home: "", explore: "recherche", product: "produit", merchant: "commerce", merchants: "commerces", alerts: "alertes", favorites: "favoris", profile: "profil", signup: "inscrire-mon-commerce", how: "comment-ca-marche", orders: "mes-reservations", theme: "theme", join: "rejoindre-equipe", mentions: "mentions-legales", privacy: "confidentialite", terms: "conditions-utilisation" },
   merchant: { dashboard: "", posts: "publications", publish: "publier", import: "import", demand: "demande", plans: "forfaits", shop: "ma-fiche", moderation: "moderation", reservations: "reservations", reviews: "avis", team: "equipe", theme: "theme" },
   admin: { overview: "", finance: "finances", merchants: "commercants", merchant: "commercant", users: "utilisateurs", posts: "publications", categories: "categories", reports: "signalements", reviews: "avis", theme: "theme" },
 };

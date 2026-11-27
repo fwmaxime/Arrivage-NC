@@ -146,6 +146,7 @@ interface Ctx {
   requireAccount: (reason: string) => boolean;
   signIn: (id: string, pw: string) => Promise<string | null>;
   signUp: (email: string, pw: string, name: string) => Promise<{ error: string | null; confirm?: boolean }>;
+  deleteAccount: () => Promise<string | null>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<string | null>;
   updatePassword: (pw: string) => Promise<string | null>;
@@ -529,6 +530,18 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setS((x) => ({ ...mergeUser({ ...x, me: null }, null) }));
     toast("Vous êtes déconnecté", "info");
   };
+  // Suppression définitive du compte (fonction delete_my_account, script supabase/compte.sql)
+  const deleteAccount = async () => {
+    if (!sb || !cur.current.me) return "Service indisponible.";
+    clearTimeout(userTimer.current);
+    const { error } = await sb.rpc("delete_my_account");
+    if (error) return /could not find|does not exist|schema cache/i.test(error.message) ? "La suppression de compte n'est pas encore activée. Écrivez à contact@arrivagenc.com." : error.message;
+    try { localStorage.removeItem(LOCAL_KEY); } catch {}
+    await sb.auth.signOut({ scope: "local" }).catch(() => {});
+    setS((x) => ({ ...mergeUser({ ...x, me: null }, null) }));
+    toast("Votre compte et vos données ont été supprimés", "info");
+    return null;
+  };
   const resetPassword = async (email: string) => {
     if (!sb) return "Service indisponible.";
     const { error } = await sb.auth.resetPasswordForEmail(email.trim().toLowerCase(), { redirectTo: location.origin + location.pathname });
@@ -560,7 +573,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   };
   const reload = async () => { await loadAll(cur.current.me); };
 
-  return <C.Provider value={{ s, storageOk, mutate, toast, toasts, log, publish, online: !!sb, auth, openAuth, closeAuth, requireAccount, signIn, signUp, signOut, resetPassword, updatePassword, updateName, demand, merchantStats, reload }}>{children}</C.Provider>;
+  return <C.Provider value={{ s, storageOk, mutate, toast, toasts, log, publish, online: !!sb, auth, openAuth, closeAuth, requireAccount, signIn, signUp, signOut, deleteAccount, resetPassword, updatePassword, updateName, demand, merchantStats, reload }}>{children}</C.Provider>;
 }
 
 export const newId = uid;

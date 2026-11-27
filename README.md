@@ -51,6 +51,9 @@ Ordre à respecter. Chaque script peut être relancé sans risque. **Après tout
 3. `supabase/avis.sql` : avis sans réservation (modifiables, un par commerce).
 4. `supabase/staff.sql` : comptes employés (Gérant, Vendeur), fonction `join_staff`.
 5. `supabase/photos.sql` : bucket de stockage « photos ».
+6. `supabase/compte.sql` : bouton « Supprimer mon compte » (fonction `delete_my_account`).
+
+**Pages légales** : `sources/src/legal.tsx` (mentions légales, confidentialité, conditions). Compléter l’objet `EDITOR` en haut du fichier (responsables, statut, adresse, directeur de la publication) avant de publier sur le site officiel.
 
 - **Photos** : enregistrées dans le stockage Supabase (bucket `photos/<id du commerce>/…`). Les anciennes photos enregistrées en texte sont déplacées automatiquement la première fois que le commerçant, un gérant ou un admin ouvre le site.
 - **Rafraîchissement** : un compte connecté ne recharge que les lignes modifiées toutes les 90 s, et tout le catalogue toutes les 15 min.
