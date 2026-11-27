@@ -12,6 +12,7 @@ import { dealState, dealBadge, dealWhen, isRestoProduct } from "./deals";
 import { Scope, SCOPES, suggest, brandsOf, inStock, recentSearches, pushRecent, clearRecent, highlight } from "./finder";
 import { useDemo } from "./demo";
 import { HowBand } from "./how";
+import { useHScroll, HArrows } from "./hscroll";
 import { Btn, ProductVisual, MerchantLogo, SectionHead, cx } from "./ui";
 
 function Hl({ text, q }: { text: string; q: string }) {
@@ -140,16 +141,20 @@ function CommuneSelect() {
 // Garde la compatibilité avec l'en-tête
 export const SearchBox = (p: any) => <SmartSearch {...p} />;
 
-function Rail({ children }: any) { return <div className="rail-wrap"><div className="rail">{children}</div></div>; }
+function Rail({ children }: any) {
+  const h = useHScroll<HTMLDivElement>();
+  return <div className="rail-wrap"><div className="rail" ref={h.ref}>{children}</div><HArrows edge={h.edge} by={h.by} className="harrows-rail" /></div>;
+}
 
 // Bandeau « À la une », juste sous la barre de recherche
 function Spotlight({ list }: { list: Product[] }) {
   const { s } = useStore();
   const { go } = useNav();
+  const h = useHScroll<HTMLDivElement>();
   return (
     <div className="spot" aria-label="À la une">
-      <div className="spot-head"><Megaphone size={13} /> À la une <span>Publications mises en avant</span></div>
-      <div className="spot-rail">
+      <div className="spot-head"><Megaphone size={13} /> À la une <span>Publications mises en avant</span><HArrows edge={h.edge} by={h.by} className="harrows-spot" /></div>
+      <div className="spot-rail" ref={h.ref}>
         {list.map((p) => {
           const m = s.merchants.find((x) => x.id === p.merchantId);
           return (

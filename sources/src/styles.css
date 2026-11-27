@@ -1715,3 +1715,17 @@ input[type="range"]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 4px 
 @media (max-width: 760px) { .how-steps { grid-template-columns: 1fr; } .how-band { padding: 22px 18px; } }
 .how-tabs { display: flex; width: 100%; max-width: 420px; }
 .how-tabs button { flex: 1; justify-content: center; }
+/* Défilement horizontal : flèches, molette, glisser (hscroll.tsx) */
+.spot-rail, .rail { -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; touch-action: pan-x pan-y; cursor: grab; }
+.spot-rail.is-dragging, .rail.is-dragging { cursor: grabbing; scroll-snap-type: none; user-select: none; }
+.spot-rail.is-dragging *, .rail.is-dragging * { pointer-events: none; }
+.harrows { display: inline-flex; gap: 6px; }
+.harrows button { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: opacity .15s, background .15s; }
+.harrows button:disabled { opacity: .3; cursor: default; }
+.harrows-spot { margin-left: auto; }
+.harrows-spot button { background: rgba(255,255,255,.12); color: var(--green-fg); border: 1px solid rgba(255,255,255,.18); }
+.harrows-spot button:hover:not(:disabled) { background: rgba(255,255,255,.22); }
+.harrows-rail { position: absolute; inset: 38% -14px auto -14px; justify-content: space-between; pointer-events: none; z-index: 2; }
+.harrows-rail button { pointer-events: auto; width: 38px; height: 38px; background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow); color: var(--fg); opacity: 0; }
+.rail-wrap:hover .harrows-rail button:not(:disabled) { opacity: 1; }
+@media (hover: none) { .harrows-rail { display: none; } }

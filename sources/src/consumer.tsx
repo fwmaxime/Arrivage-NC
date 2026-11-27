@@ -12,6 +12,7 @@ import { AccountSection } from "./auth";
 import { dealState, dealVisible, dealBadge, dealTitle, dealWhen, dealPeriod, isRestoProduct, pctOff } from "./deals";
 import { Btn, IconBtn, StatusPill, Chip, ProductVisual, MerchantLogo, MerchantCover, Modal, Empty, SectionHead, Segmented, Field, DemoTag, cx } from "./ui";
 import { shareUrl } from "./url";
+import { useHScroll, HArrows } from "./hscroll";
 
 // ---------- Sélecteurs ----------
 export function useCatalog() {
@@ -87,13 +88,11 @@ export function DealPill({ p, small }: { p: Product; small?: boolean }) {
 }
 
 function Rail({ children }: any) {
-  const ref = useRef<HTMLDivElement>(null);
-  const scroll = (dir: number) => ref.current?.scrollBy({ left: dir * ref.current.clientWidth * 0.8, behavior: "smooth" });
+  const h = useHScroll<HTMLDivElement>();
   return (
     <div className="rail-wrap">
-      <button className="rail-btn rail-l" onClick={() => scroll(-1)} aria-label="Précédent"><ChevronLeft size={18} /></button>
-      <div className="rail" ref={ref}>{children}</div>
-      <button className="rail-btn rail-r" onClick={() => scroll(1)} aria-label="Suivant"><ChevronRight size={18} /></button>
+      <div className="rail" ref={h.ref}>{children}</div>
+      <HArrows edge={h.edge} by={h.by} className="harrows-rail" />
     </div>
   );
 }
