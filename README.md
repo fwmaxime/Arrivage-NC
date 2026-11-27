@@ -2,7 +2,10 @@
 
 Site : https://arrivagenc.com (GitHub Pages, branche `main`, racine).
 
-**Le site est en maintenance** : `index.html` est la page « ARRIVAGE revient bientôt ».
+**Le site est ouvert au public depuis le 27/11/2026** : `index.html` est l'application (indexable). L'ancienne page « ARRIVAGE revient bientôt » est gardée dans `maintenance.html`.
+
+Remettre en maintenance : `cp maintenance.html index.html && git commit -am "Maintenance" && git push`.
+Mettre à jour le site officiel après un build : `bash sources/build.sh "$PWD/demo-x7q4/index.html" && grep -v 'name="robots"' demo-x7q4/index.html > index.html`.
 
 - `demo-x7q4/index.html` : le prototype interactif complet (données fictives, paiement simulé), mis de côté et non référencé (noindex).
 - `sources/` : le code source du prototype (React + TypeScript, assemblé avec esbuild via `build.sh`).
