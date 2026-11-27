@@ -69,6 +69,7 @@ export interface Merchant {
   hours: string[]; phone: string; email: string; categories: CategoryId[]; color: string; ink: string;
   shape: "round" | "square" | "pill"; plan: PlanId; status: "active" | "suspended" | "pending" | "rejected"; verified: boolean; siret?: string; contactName?: string; appliedAt?: string; rejectReason?: string; source?: "inscription" | "admin";
   followersBase: number; joinedAt: string; addressVerified: boolean; stores: string[]; logo?: string; ownerId?: string; planRequest?: PlanId | null;
+  shopUrl?: string; // boutique en ligne ou page de paiement par défaut du commerçant
 }
 
 export interface Product {
@@ -78,6 +79,7 @@ export interface Product {
   scheduledAt?: string | null; sponsored: boolean; featured: boolean; images: string[]; store?: string;
   views: number; favBase: number; contacts: number; alertHits: number;
   tryOn?: boolean; // essayable en magasin
+  buyUrl?: string; // lien d'achat : page de paiement du commerçant (le client paie directement le commerce)
   deal?: Deal | null; // promotion flash ou offre limitée (restaurants : plat du jour, suggestion du week-end…)
 }
 
@@ -101,3 +103,7 @@ export function fmtRel(iso: string) {
 export const norm = (s: string) => (s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
 
 // Produits d'habillement fictifs essayables en magasin
+
+// Lien d'achat sûr (https uniquement) : celui du produit, sinon celui du commerce
+export const safeUrl = (u?: string) => { const x = (u || "").trim(); try { const url = new URL(x); return url.protocol === "https:" ? url.href : ""; } catch { return ""; } };
+export const buyLink = (p: { buyUrl?: string; tryOn?: boolean }, m?: { shopUrl?: string }) => p.tryOn ? "" : safeUrl(p.buyUrl) || safeUrl(m?.shopUrl);

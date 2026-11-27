@@ -3,7 +3,7 @@ import {
   Search, MapPin, Bell, User, Heart, ChevronRight, ChevronLeft, SlidersHorizontal, X, Store, Clock, Phone, Mail,
   Navigation, Share2, BellRing, Flag, Plus, Pencil, Trash2, Copy, Check, Calendar, Package, BadgeCheck, Info, ArrowUpRight, RotateCcw, Megaphone, Palette, ShoppingBag, Shirt, Sparkles, Tag, Flame, Timer, UtensilsCrossed,
 } from "lucide-react";
-import { CATEGORIES, COMMUNES, STATUSES, catById, fmtXPF, fmtNum, fmtRel, fmtDate, fmtDateLong, norm, Product, Merchant, Status } from "./data";
+import { CATEGORIES, COMMUNES, STATUSES, catById, fmtXPF, fmtNum, fmtRel, fmtDate, fmtDateLong, norm, Product, Merchant, Status, buyLink } from "./data";
 import { useStore, alertMatches, Alert, productHay, newId } from "./store";
 import { matchScore, correct, termScore, indexOf, words as qWords } from "./search";
 import { useNav } from "./nav";
@@ -413,6 +413,7 @@ export function ProductPage({ params }: any) {
   const views = p.images.length ? p.images.length : 3;
   const similar = catalog.filter((x) => x.category === p.category && x.id !== p.id).slice(0, 4);
   const following = s.follows.includes(m.id);
+  const buy = buyLink(p, m);
   const copy = async (txt: string, msg: string) => {
     try { await navigator.clipboard.writeText(txt); toast(msg); } catch { toast("Copie impossible ici : sélectionnez le texte manuellement", "warn"); }
   };
@@ -484,8 +485,9 @@ export function ProductPage({ params }: any) {
           {p.tags.length > 0 && <div className="tags">{p.tags.map((t) => <span key={t} className="tag">#{t}</span>)}</div>}
 
           <div className="pinfo-actions">
-            {/* Réservation retirée (27/11/2026) : trop d'abus et de produits jamais retirés. L'achat en ligne la remplacera. */}
-            <Btn size="lg" variant="accent" icon={Phone} onClick={() => { setContact(true); mutate((d) => { const x = d.products.find((y) => y.id === p.id); if (x) x.contacts = (x.contacts || 0) + 1; }); }}>Contacter le commerce</Btn>
+            {/* Pas de réservation (abus, produits jamais retirés). Achat : le client paie directement le commerçant, sur sa page de paiement. */}
+            {buy && <a className="btn btn-accent btn-lg" href={buy} target="_blank" rel="noopener noreferrer nofollow" onClick={() => mutate((d) => { const x = d.products.find((y) => y.id === p.id); if (x) x.contacts = (x.contacts || 0) + 1; })}><ShoppingBag size={17} /> Acheter</a>}
+            <Btn size="lg" variant={buy ? "outline" : "accent"} icon={Phone} onClick={() => { setContact(true); mutate((d) => { const x = d.products.find((y) => y.id === p.id); if (x) x.contacts = (x.contacts || 0) + 1; }); }}>Contacter le commerce</Btn>
             <Btn size="lg" variant="outline" icon={BellRing} onClick={() => go("alerts", { create: { query: p.name, category: p.category, brand: p.brand } })}>Créer une alerte</Btn>
             <div className="row">
               <FavButtonLabeled id={p.id} />
@@ -493,7 +495,7 @@ export function ProductPage({ params }: any) {
               <Btn variant="ghost" icon={Flag} onClick={() => !requireAccount("Connectez-vous pour signaler une publication à la modération.") ? null : s.profile.blocked ? toast("Votre compte a été bloqué par la modération : vous ne pouvez plus envoyer de signalement", "warn") : setReport(true)}>Signaler</Btn>
             </div>
           </div>
-          <p className="disclaimer">{isRestoProduct(p) ? "Prix et disponibilité déclarés par le restaurant. Commande et réservation de table directement auprès du restaurant." : "Prix et disponibilité déclarés par le commerçant. Vérifiez la disponibilité auprès du commerce avant de vous déplacer."}{p.deal ? " Offre valable dans la limite des stocks et aux dates indiquées." : ""}</p>
+          <p className="disclaimer">{isRestoProduct(p) ? "Prix et disponibilité déclarés par le restaurant. Commande et réservation de table directement auprès du restaurant." : buy ? `Prix et disponibilité déclarés par le commerçant. « Acheter » ouvre la page de paiement de ${m.name} : vous payez directement le commerce, puis retirez votre achat selon ses conditions.` : "Prix et disponibilité déclarés par le commerçant. Vérifiez la disponibilité auprès du commerce avant de vous déplacer."}{p.deal ? " Offre valable dans la limite des stocks et aux dates indiquées." : ""}</p>
         </div>
       </div>
 

@@ -249,7 +249,7 @@ export function Home() {
           <ol className="launch-steps">
             <li><b>1</b><span><strong>Cherchez</strong> un produit, une marque ou une boutique.</span></li>
             <li><b>2</b><span><strong>Comparez</strong> prix, stock et commune en un coup d'œil.</span></li>
-            <li><b>3</b><span><strong>Foncez</strong> en magasin ou contactez le commerce.</span></li>
+            <li><b>3</b><span><strong>Achetez</strong> en ligne chez le commerçant, ou foncez en magasin.</span></li>
           </ol>
         </section>
       )}
