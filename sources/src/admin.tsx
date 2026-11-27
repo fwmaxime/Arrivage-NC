@@ -1,3 +1,4 @@
+import { StandbyCard } from "./standby";
 import { AdminReservationsPanel } from "./reservations";
 import React, { useEffect, useMemo, useState } from "react";
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, AreaChart, Area, XAxis, YAxis, CartesianGrid } from "recharts";
@@ -38,6 +39,7 @@ export function AdminOverview() {
         <div><h1 className="page-title">Supervision de la plateforme</h1><p className="muted">Vue globale de la plateforme ARRIVAGE</p></div>
         <Btn icon={Calculator} variant="outline" onClick={() => go("finance")}>Ouvrir le simulateur</Btn>
       </div>
+      <StandbyCard />
       <div className="stats">
         <Stat icon={Users} label="Utilisateurs" value={fmtNum(usersBase)} sub="Comptes créés" />
         <Stat icon={Store} label="Commerçants inscrits" value={fmtNum(registered.length)} sub={`${active.length} actifs · ${registered.length - active.length} suspendu(s) · ${pendingN} en attente`} />
