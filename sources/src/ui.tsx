@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { X, Check, Info, TriangleAlert, ImageOff } from "lucide-react";
-import { catById, Merchant, Product, statusLabel } from "./data";
+import { catById, Merchant, Product, statusLabel, statusText, daysSince } from "./data";
 import { useStore } from "./store";
 
 export const cx = (...a: any[]) => a.filter(Boolean).join(" ");
@@ -31,8 +31,9 @@ export function IconBtn({ icon: Icon, label, active, className, size = 18, ...re
 }
 
 const STATUS_TONE: Record<string, string> = { today: "orange", new: "green", restock: "blue", soon: "violet", limited: "amber", out: "grey" };
-export function StatusPill({ status, small }: { status: string; small?: boolean }) {
-  return <span className={cx("pill", `pill-${STATUS_TONE[status] || "grey"}`, small && "pill-sm")}><i />{statusLabel(status)}</span>;
+export function StatusPill({ status, small, at }: { status: string; small?: boolean; at?: string }) {
+  const live = at && status === "today" && daysSince(at) >= 1 ? "new" : status;
+  return <span className={cx("pill", `pill-${STATUS_TONE[live] || "grey"}`, small && "pill-sm")}><i />{statusText(status, at)}</span>;
 }
 
 export function Chip({ children, active, onClick, icon: Icon }: any) {

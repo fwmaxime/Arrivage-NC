@@ -147,7 +147,8 @@ function MerchantShellIn({ route, go }: any) {
     { n: "publish", l: "Publier un arrivage", s: "Publier", i: Plus, cta: true },
     { n: "import", l: "Import Excel", s: "Import", i: FileSpreadsheet, lock: !plan.can.bulkImport },
     { n: "demand", l: "Demande locale", s: "Demande", i: Target, lock: !plan.can.demand },
-    { n: "reservations", l: "Réservations", s: "Réservations", i: ShoppingBag, badge: resNew },
+    // Réservations supprimées le 27/11/2026 : l'entrée ne reste que pour consulter d'anciennes réservations
+    ...(s.reservations.some((r) => r.merchantId === me.id) ? [{ n: "reservations", l: "Anciennes réservations", s: "Réservations", i: ShoppingBag, badge: resNew }] : []),
     { n: "reviews", l: "Avis clients", s: "Avis", i: Star },
     { n: "moderation", l: "Modération", s: "Modération", i: ShieldCheck, badge: modUnread },
         { n: "plans", l: "Forfaits", s: "Forfaits", i: Crown },
@@ -171,7 +172,6 @@ function MerchantShellIn({ route, go }: any) {
       default: return <MerchantDashboard />;
     }
   })();
-  useEffect(() => { if (resNew > 0) toast(`${resNew} nouvelle${resNew > 1 ? "s" : ""} réservation${resNew > 1 ? "s" : ""} payée${resNew > 1 ? "s" : ""} pour ${me.name}`, "info"); }, [me.id]);
   const switcher = (
     <label className="mswitch">
       <MerchantLogo m={me} size={34} />

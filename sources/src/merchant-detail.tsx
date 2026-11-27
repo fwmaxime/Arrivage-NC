@@ -161,7 +161,7 @@ export function AdminMerchantDetail({ id }: { id: string }) {
                 <div><span>Net reversé au commerce</span><b>{fmtXPF(gross)}</b></div>
                 <div><span>Abonnements facturés par ARRIVAGE</span><b>{fmtXPF(subTotal)}</b></div>
               </div>
-              <p className="note md-note">Aucun paiement ne transite par ARRIVAGE : les réservations sont réglées en magasin. Les montants d'abonnement sont théoriques, calculés à partir du forfait actuel.</p>
+              <p className="note md-note">Aucun paiement ne transite par ARRIVAGE : le client paie directement le commerçant (en magasin ou par son lien de paiement). Les anciennes réservations restent listées ici pour mémoire. Les montants d'abonnement sont théoriques, calculés à partir du forfait actuel.</p>
               {!ledger.length ? <Empty icon={CreditCard} title="Aucun paiement" /> : (
                 <div className="table-scroll">
                   <table className="admin-table md-table">

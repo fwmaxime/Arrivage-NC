@@ -186,7 +186,7 @@ export function AdminPosts() {
               <span className="post-thumb"><ProductVisual p={p} /></span>
               <div className="post-main">
                 <div className="post-title"><strong>{p.name}</strong>{p.featured && <span className="pill pill-sm pill-orange"><i />À la une</span>}{p.sponsored && <span className="sponso sponso-inline">Sponsorisé</span>}</div>
-                <div className="post-meta"><StatePill state={p.state} /><StatusPill status={p.status} small /><span>{m?.name}</span><span>{fmtXPF(p.price)}</span><span className="muted">{catById(p.category).label}</span></div>
+                <div className="post-meta"><StatePill state={p.state} /><StatusPill status={p.status} at={p.arrivedAt} small /><span>{m?.name}</span><span>{fmtXPF(p.price)}</span><span className="muted">{catById(p.category).label}</span></div>
               </div>
               <div className="post-actions">
                 {p.state !== "hidden" ? <Btn size="sm" variant="outline" icon={EyeOff} onClick={() => upd(p.id, (x) => (x.state = "hidden"), `Publication masquée : « ${p.name} »`)}>Masquer</Btn>

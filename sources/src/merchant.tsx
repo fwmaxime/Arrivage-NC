@@ -78,7 +78,7 @@ export function MerchantDashboard() {
 
       {me.status !== "active" && <div className="banner-warn"><Info size={16} /> {me.status === "pending" ? "Compte en attente de validation par l'équipe ARRIVAGE : vos publications ne sont pas encore visibles." : "Compte suspendu par la modération : vos publications ne sont plus visibles."}</div>}
       {s.reservations.some((r) => r.merchantId === me.id && r.status === "paid") && (
-        <button className="resbanner" onClick={() => go("reservations")}><ShoppingBag size={18} /> <span><strong>{s.reservations.filter((r) => r.merchantId === me.id && r.status === "paid").length} réservation(s) à préparer.</strong> Le client viendra retirer et payer en magasin.</span><strong>Voir</strong></button>
+        <button className="resbanner" onClick={() => go("reservations")}><ShoppingBag size={18} /> <span><strong>{s.reservations.filter((r) => r.merchantId === me.id && r.status === "paid").length} ancienne(s) réservation(s) encore ouverte(s).</strong> Les réservations n'existent plus : clôturez-les une fois le produit retiré ou annulé.</span><strong>Voir</strong></button>
       )}
       {s.reports.some((r) => r.merchantUnread && mine.some((p) => p.id === r.productId)) && (
         <button className="modbanner" onClick={() => go("moderation")}><Info size={16} /> <span>Vous avez un nouveau message de la modération concernant une publication signalée.</span><strong>Voir</strong></button>
@@ -140,7 +140,7 @@ export function MerchantDashboard() {
                 <div key={p.id} className="toprow">
                   <span className="rank">{i + 1}</span>
                   <span className="toprow-thumb"><ProductVisual p={p} /></span>
-                  <div className="toprow-main"><strong>{p.name}</strong><span className="muted small">{fmtXPF(p.price)} · <StatusPill status={p.status} small /></span></div>
+                  <div className="toprow-main"><strong>{p.name}</strong><span className="muted small">{fmtXPF(p.price)} · <StatusPill status={p.status} at={p.arrivedAt} small /></span></div>
                   <div className="toprow-num"><strong>{plan.can.stats === "none" ? "—" : fmtNum(p.views)}</strong><span className="muted small">vues</span></div>
                 </div>
               ))}
@@ -216,7 +216,7 @@ export function PostsPage() {
               <div className="post-title"><strong>{p.name}</strong>{p.sponsored && <span className="sponso sponso-inline">Sponsorisé</span>}{p.deal && <span className={cx("pill pill-sm deal-pill", dealState(p) === "upcoming" && "is-soon", dealState(p) === "ended" && "is-ended")}><Flame size={11} />{dealTitle(p)}{dealBadge(p) && dealBadge(p) !== dealKind(p.deal.kind).short ? ` · ${dealBadge(p)}` : ""} · {dealState(p) === "ended" ? "terminée" : dealWhen(p).toLowerCase()}</span>}</div>
               <div className="post-meta">
                 <StatePill state={p.state} />
-                <StatusPill status={p.status} small />
+                <StatusPill status={p.status} at={p.arrivedAt} small />
                 <span>{fmtXPF(p.price)}</span>
                 {p.qty != null && <span>{p.qty} en stock</span>}
                 <span className="muted">{p.state === "scheduled" && p.scheduledAt ? `Prévue le ${new Date(p.scheduledAt).toLocaleString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}` : `Mise à jour ${fmtRel(p.updatedAt)}`}</span>
@@ -382,7 +382,7 @@ export function PublishPage({ params }: any) {
     go("posts");
   };
 
-  const example = () => setF({ ...f, name: "GTA VI — édition standard PS5", category: "gaming", brand: "Rockstar Games", description: "Premier arrivage du jeu en version PS5, boîte française. Réservation conseillée.", price: "9990", qty: "24", status: "today", tags: "gta, gta vi, ps5, jeu vidéo", arrived: todayStr() });
+  const example = () => setF({ ...f, name: "GTA VI — édition standard PS5", category: "gaming", brand: "Rockstar Games", description: "Premier arrivage du jeu en version PS5, boîte française. Quantités limitées.", price: "9990", qty: "24", status: "today", tags: "gta, gta vi, ps5, jeu vidéo", arrived: todayStr() });
 
   const preview: Product = { ...build(), price: Number(f.price) || 0, name: f.name || "Nom du produit", brand: f.brand || "Marque", state: "published" } as Product;
   const minSched = new Date(Date.now() + 60e3 - new Date().getTimezoneOffset() * 60e3).toISOString().slice(0, 16);

@@ -219,7 +219,7 @@ export function ImportPage() {
 
   return (
     <div className="page imp-page">
-      <div className="page-head"><div><h1 className="page-title">Import du catalogue</h1><p className="muted">Publiez tout un arrivage d'un coup depuis un fichier Excel. <DemoTag /></p></div></div>
+      <div className="page-head"><div><h1 className="page-title">Import du catalogue</h1><p className="muted">Publiez tout un arrivage d'un coup depuis un fichier Excel.</p></div></div>
       {stepper}
 
       {step === 1 && (

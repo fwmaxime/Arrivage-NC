@@ -55,7 +55,10 @@ export function dealBadge(p: Product) {
 export function dealTitle(p: Product) {
   if (!p.deal) return "";
   const k = dealKind(p.deal.kind);
-  return p.deal.occasion ? `${k.short === "Promo" ? "Promo" : k.short} · ${p.deal.occasion}` : k.label;
+  const occ = p.deal.occasion?.trim();
+  // pas de doublon « Week-end · Week-end » quand l'occasion porte le même nom que le type d'offre
+  if (occ && occ.toLowerCase() !== k.short.toLowerCase() && occ.toLowerCase() !== k.label.toLowerCase()) return `${k.short} · ${occ}`;
+  return k.label;
 }
 
 const fmtDay = (d: Date) => d.toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" });
@@ -119,3 +122,5 @@ export function presets(kind: DealKind, now = new Date()): { l: string; start: D
   if (kind === "promo") return [{ l: `Black Friday (${fmtDay(bf)} → dim.)`, start: bfStart, end: at(bf, 2, 23, 59), occasion: "Black Friday" }, ...list];
   return list;
 }
+// Libellé court du type d'offre (« Plat du jour », « Promo »…) : sert à ne pas l'afficher deux fois sur une carte
+export const dealKindShort = (p: Product) => (p.deal ? dealKind(p.deal.kind).short : "");

@@ -3,7 +3,8 @@ import { Star, MessageSquare, BadgeCheck, Check, EyeOff, Eye, Trash2, Reply, Shi
 import { fmtRel } from "./data";
 import { useStore, newId } from "./store";
 import { useNav } from "./nav";
-import { Btn, Modal, Empty, Segmented, cx, Field, MerchantLogo, DemoTag } from "./ui";
+import { Btn, Modal, Empty, Segmented, cx, Field, MerchantLogo } from "./ui";
+import { isDemoId } from "./demo";
 import type { Reservation } from "./reservations";
 
 export type ReviewStatus = "pending" | "published" | "hidden";
@@ -42,14 +43,14 @@ export function ReviewItem({ r, showProduct }: { r: Review; showProduct?: boolea
   );
 }
 
-export function ReviewsBlock({ merchantId, productId, title = "Avis clients" }: { merchantId: string; productId?: string; title?: string }) {
+export function ReviewsBlock({ merchantId, productId, productName, title = "Avis clients" }: { merchantId: string; productId?: string; productName?: string; title?: string }) {
   const { s } = useStore();
   const list = published(s.reviews, merchantId, productId).sort((a, b) => b.at.localeCompare(a.at));
   const all = ratingOf(s.reviews, merchantId);
   const dist = [5, 4, 3, 2, 1].map((n) => published(s.reviews, merchantId).filter((r) => r.rating === n).length);
   return (
     <section className="sec reviews-block">
-      <div className="shead"><div><h2>{title}</h2><p>{productId ? `${list.length} avis sur ce produit · note du commerce ${all.n ? avgTxt(all.avg) + " / 5" : "—"}` : "Laissés après un retrait en magasin, vérifiés par la modération"}</p></div></div>
+      <div className="shead"><div><h2>{title}</h2><p>{productId ? `${list.length} avis sur ce produit · note du commerce ${all.n ? avgTxt(all.avg) + " / 5" : "—"}` : "Laissés par les clients, vérifiés par la modération"}</p></div><WriteReviewButton merchantId={merchantId} productId={productId} productName={productName} /></div>
       {!productId && all.n > 0 && (
         <div className="rv-summary">
           <div className="rv-big"><b>{avgTxt(all.avg)}</b><Stars value={all.avg} size={16} /><span className="micro">{all.n} avis</span></div>
@@ -57,47 +58,75 @@ export function ReviewsBlock({ merchantId, productId, title = "Avis clients" }: 
         </div>
       )}
       {list.length ? <div className="reviews">{list.slice(0, productId ? 4 : 20).map((r) => <ReviewItem key={r.id} r={r} showProduct={!productId} />)}</div>
-        : <p className="muted small">Aucun avis publié pour l'instant. Les clients peuvent noter le commerce après avoir retiré une réservation.</p>}
+        : <p className="muted small">Aucun avis publié pour l'instant. Vous connaissez ce commerce ? Soyez le premier à donner votre avis.</p>}
     </section>
   );
 }
 
 // ---------- Consommateur : laisser un avis ----------
+// Depuis la fin des réservations (27/11/2026), tout client connecté peut donner un avis sur un commerce (un par commerce, modifiable),
+// depuis la page du commerce ou une fiche produit. L'avis passe par la modération si elle est activée (Admin > Avis clients).
+export function WriteReviewButton({ merchantId, productId, productName }: { merchantId: string; productId?: string; productName?: string }) {
+  const { s, requireAccount, toast } = useStore();
+  const [open, setOpen] = useState(false);
+  if (isDemoId(merchantId)) return null;
+  const owner = !!s.me && s.merchants.some((m) => m.id === merchantId && (m as any).ownerId === s.me!.id);
+  if (owner) return null;
+  const mine = s.me ? s.reviews.find((r) => r.merchantId === merchantId && r.authorId === s.me!.id) : undefined;
+  const click = () => {
+    if (!requireAccount("Connectez-vous pour donner votre avis sur ce commerce.")) return;
+    if (s.profile.blocked) { toast("Votre compte a été bloqué par la modération : vous ne pouvez plus publier d'avis.", "warn"); return; }
+    setOpen(true);
+  };
+  return (
+    <div className="rv-write">
+      {mine && <span className={cx("rv-state", `rv-${mine.status}`)}><Stars value={mine.rating} size={12} /> {mine.status === "pending" ? "Votre avis attend la modération" : mine.status === "published" ? "Votre avis est publié" : "Votre avis a été masqué"}</span>}
+      {(!mine || mine.status !== "hidden") && <Btn size="sm" variant="outline" icon={Star} onClick={click}>{mine ? "Modifier mon avis" : "Donner mon avis"}</Btn>}
+      {open && <ReviewForm merchantId={merchantId} productId={mine ? mine.productId : productId} productName={mine ? mine.productName : productName} existing={mine} onClose={() => setOpen(false)} />}
+    </div>
+  );
+}
+
+// Anciennes réservations retirées : même formulaire, avec la mention « Achat vérifié »
 export function ReviewButton({ res }: { res: Reservation }) {
   const { s } = useStore();
   const [open, setOpen] = useState(false);
   const mine = s.reviews.find((r) => r.reservationId === res.id);
   if (mine) return <span className={cx("rv-state", `rv-${mine.status}`)}><Stars value={mine.rating} size={12} /> {mine.status === "pending" ? "Avis en attente de modération" : mine.status === "published" ? "Avis publié" : "Avis masqué par la modération"}</span>;
-  return <><Btn size="sm" variant="outline" icon={Star} onClick={() => setOpen(true)}>Laisser un avis</Btn>{open && <ReviewForm res={res} onClose={() => setOpen(false)} />}</>;
+  return <><Btn size="sm" variant="outline" icon={Star} onClick={() => setOpen(true)}>Laisser un avis</Btn>{open && <ReviewForm merchantId={res.merchantId} productId={res.productId} productName={res.productName} res={res} onClose={() => setOpen(false)} />}</>;
 }
 
 const LABELS = ["", "Très décevant", "Décevant", "Correct", "Bien", "Excellent"];
-function ReviewForm({ res, onClose }: { res: Reservation; onClose: () => void }) {
+function ReviewForm({ merchantId, productId, productName, res, existing, onClose }: { merchantId: string; productId?: string; productName?: string; res?: Reservation; existing?: Review; onClose: () => void }) {
   const { s, mutate, toast, log } = useStore();
-  const m = s.merchants.find((x) => x.id === res.merchantId);
-  const [rating, setRating] = useState(0);
+  const m = s.merchants.find((x) => x.id === merchantId);
+  const [rating, setRating] = useState(existing?.rating || 0);
   const [hover, setHover] = useState(0);
-  const [text, setText] = useState("");
-  const [author, setAuthor] = useState(s.me?.displayName || "");
+  const [text, setText] = useState(existing?.text || "");
+  const [author, setAuthor] = useState(existing?.author || s.me?.displayName || "");
   const ok = rating > 0 && text.trim().length >= 10;
   const auto = !s.settings.moderateReviews;
+  const verified = !!res || !!existing?.verified;
   return (
-    <Modal open onClose={onClose} title="Votre avis">
-      {m && <div className="rf-item"><MerchantLogo m={m} size={44} /><div><strong>{m.name}</strong><span className="muted small">{res.productName} · retiré avec le code {res.code}</span></div></div>}
+    <Modal open onClose={onClose} title={existing ? "Modifier mon avis" : "Votre avis"}>
+      {m && <div className="rf-item"><MerchantLogo m={m} size={44} /><div><strong>{m.name}</strong><span className="muted small">{res ? `${res.productName} · retiré avec le code ${res.code}` : productName ? `À propos de « ${productName} »` : m.commune}</span></div></div>}
       <div className="rv-pick" onMouseLeave={() => setHover(0)}>
         {[1, 2, 3, 4, 5].map((i) => <button key={i} className={cx((hover || rating) >= i && "on")} onMouseEnter={() => setHover(i)} onClick={() => setRating(i)} aria-label={`${i} étoile${i > 1 ? "s" : ""}`}><Star size={30} fill="currentColor" strokeWidth={0} /></button>)}
         <span>{LABELS[hover || rating] || "Choisissez une note"}</span>
       </div>
-      <Field label="Votre commentaire" htmlFor="rv-text" hint={`${text.trim().length} / 10 caractères minimum · restez courtois, pas de coordonnées`}><textarea id="rv-text" rows={4} value={text} onChange={(e) => setText(e.target.value.slice(0, 600))} placeholder="Accueil, état du produit, retrait en magasin…" /></Field>
+      <Field label="Votre commentaire" htmlFor="rv-text" hint={`${text.trim().length} / 10 caractères minimum · restez courtois, pas de coordonnées`}><textarea id="rv-text" rows={4} value={text} onChange={(e) => setText(e.target.value.slice(0, 600))} placeholder="Accueil, conseil, état du produit, respect des prix annoncés…" /></Field>
       <Field label="Nom affiché" htmlFor="rv-author"><input id="rv-author" value={author} onChange={(e) => setAuthor(e.target.value.slice(0, 40))} /></Field>
-      <p className="note"><ShieldCheck size={14} /> {auto ? "Votre avis sera publié immédiatement avec la mention « Achat vérifié »." : "Votre avis sera publié après vérification par la modération, avec la mention « Achat vérifié »."}</p>
+      <p className="note"><ShieldCheck size={14} /> {auto ? "Votre avis sera publié immédiatement." : "Votre avis sera publié après vérification par la modération."} Un seul avis par commerce : vous pourrez le modifier plus tard.</p>
       <div className="row-end" style={{ marginTop: 12 }}><Btn variant="ghost" onClick={onClose}>Annuler</Btn><Btn disabled={!ok} icon={Check} onClick={() => {
         mutate((d) => {
-          d.reviews.unshift({ id: newId(), merchantId: res.merchantId, productId: res.productId, productName: res.productName, reservationId: res.id, verified: true, rating, text: text.trim(), author: author.trim() || "Anonyme", authorId: s.me!.id, at: new Date().toISOString(), status: auto ? "published" : "pending" });
-          log(d, `Nouvel avis ${rating}/5 sur ${m?.name}${auto ? "" : " (à modérer)"}`, "consommateur");
+          const base = { merchantId, productId, productName, reservationId: res?.id, verified, rating, text: text.trim(), author: author.trim() || "Anonyme", authorId: s.me!.id, at: new Date().toISOString(), status: (auto ? "published" : "pending") as ReviewStatus };
+          const x = existing && d.reviews.find((r) => r.id === existing.id);
+          if (x) Object.assign(x, base, { reply: x.reply });
+          else d.reviews.unshift({ id: newId(), ...base });
+          log(d, `${x ? "Avis modifié" : "Nouvel avis"} ${rating}/5 sur ${m?.name}${auto ? "" : " (à modérer)"}`, "consommateur");
         });
         toast(auto ? "Merci, votre avis est publié" : "Merci, votre avis sera publié après modération"); onClose();
-      }}>Publier mon avis</Btn></div>
+      }}>{existing ? "Enregistrer" : "Publier mon avis"}</Btn></div>
     </Modal>
   );
 }
@@ -113,9 +142,9 @@ export function MerchantReviews({ merchantId }: { merchantId: string }) {
   const rt = ratingOf(s.reviews, merchantId);
   return (
     <div className="page">
-      <div className="page-head"><div><h1 className="page-title">Avis clients</h1><p className="muted">Les clients notent votre commerce après un retrait. Répondez publiquement, avec courtoisie</p></div>{rt.n > 0 && <div className="rv-big rv-inline"><b>{avgTxt(rt.avg)}</b><Stars value={rt.avg} size={16} /><span className="micro">{rt.n} avis publiés</span></div>}</div>
+      <div className="page-head"><div><h1 className="page-title">Avis clients</h1><p className="muted">Les clients notent votre commerce depuis votre page ARRIVAGE. Répondez publiquement, avec courtoisie</p></div>{rt.n > 0 && <div className="rv-big rv-inline"><b>{avgTxt(rt.avg)}</b><Stars value={rt.avg} size={16} /><span className="micro">{rt.n} avis publiés</span></div>}</div>
       {pending > 0 && <div className="banner-info"><Info size={16} /> {pending} avis en cours de vérification par la modération ARRIVAGE.</div>}
-      {!list.length ? <Empty icon={MessageSquare} title="Aucun avis publié" body="Les avis apparaîtront ici après les premiers retraits en magasin." /> : (
+      {!list.length ? <Empty icon={MessageSquare} title="Aucun avis publié" body="Les avis de vos clients apparaîtront ici. Partagez le lien de votre page pour en recevoir." /> : (
         <div className="reviews">
           {list.map((r) => (
             <div key={r.id} className="review-wrap">

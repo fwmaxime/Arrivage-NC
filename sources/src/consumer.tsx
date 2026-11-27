@@ -3,13 +3,13 @@ import {
   Search, MapPin, Bell, User, Heart, ChevronRight, ChevronLeft, SlidersHorizontal, X, Store, Clock, Phone, Mail,
   Navigation, Share2, BellRing, Flag, Plus, Pencil, Trash2, Copy, Check, Calendar, Package, BadgeCheck, Info, ArrowUpRight, RotateCcw, Megaphone, Palette, ShoppingBag, Shirt, Sparkles, Tag, Flame, Timer, UtensilsCrossed,
 } from "lucide-react";
-import { CATEGORIES, COMMUNES, STATUSES, catById, fmtXPF, fmtNum, fmtRel, fmtDate, fmtDateLong, norm, Product, Merchant, Status, buyLink } from "./data";
+import { CATEGORIES, COMMUNES, STATUSES, liveStatus, daysSince, catById, fmtXPF, fmtNum, fmtRel, fmtDate, fmtDateLong, norm, Product, Merchant, Status, buyLink } from "./data";
 import { useStore, alertMatches, Alert, productHay, newId } from "./store";
 import { matchScore, correct, termScore, indexOf, words as qWords } from "./search";
 import { useNav } from "./nav";
 import { RatingBadge, ReviewsBlock } from "./reviews";
 import { AccountSection } from "./auth";
-import { dealState, dealVisible, dealBadge, dealTitle, dealWhen, dealPeriod, isRestoProduct, pctOff } from "./deals";
+import { dealState, dealVisible, dealBadge, dealTitle, dealKindShort, dealWhen, dealPeriod, isRestoProduct, pctOff } from "./deals";
 import { Btn, IconBtn, StatusPill, Chip, ProductVisual, MerchantLogo, MerchantCover, Modal, Empty, SectionHead, Segmented, Field, DemoTag, cx } from "./ui";
 import { shareUrl } from "./url";
 import { useHScroll, HArrows } from "./hscroll";
@@ -55,10 +55,10 @@ export function ProductCard({ p, compact }: { p: Product; compact?: boolean }) {
     <article className={cx("pcard", compact && "pcard-compact", p.status === "out" && "is-out")} onClick={() => go("product", { id: p.id })} tabIndex={0} onKeyDown={(e) => e.key === "Enter" && go("product", { id: p.id })}>
       <div className="pcard-media">
         <ProductVisual p={p} />
-        <div className="pcard-top">{p.deal && p.status !== "out" ? <DealPill p={p} small /> : <StatusPill status={p.status} small />}</div>
+        <div className="pcard-top">{p.deal && p.status !== "out" ? <DealPill p={p} small /> : <StatusPill status={p.status} at={p.arrivedAt} small />}</div>
         <FavButton id={p.id} overlay />
         {p.sponsored && <span className="sponso">Sponsorisé</span>}
-        {p.deal && dealBadge(p) && <span className={cx("deal-badge", dealState(p) === "upcoming" && "is-soon")}>{dealBadge(p)}</span>}
+        {p.deal && dealBadge(p) && dealBadge(p) !== dealTitle(p) && dealBadge(p) !== dealKindShort(p) && <span className={cx("deal-badge", dealState(p) === "upcoming" && "is-soon")}>{dealBadge(p)}</span>}
         {p.tryOn && <span className="tryon-tag"><Shirt size={11} /> Essayable</span>}
       </div>
       <div className="pcard-body">
@@ -180,10 +180,10 @@ export function Explore({ params }: any) {
       if (nq) { const sc = matchScore(nq, productHay(p, m)); if (!sc) return false; score.set(p.id, sc + 0.4 * matchScore(nq, `${p.name} ${p.brand || ""}`)); }
       if (f.cats.length && !f.cats.includes(p.category)) return false;
       if (f.communes.length && !f.communes.includes(m.commune)) return false;
-      if (f.statuses.length && !f.statuses.includes(p.status)) return false;
+      if (f.statuses.length && !f.statuses.includes(liveStatus(p))) return false;
       if (!priceErr && min != null && p.price < min) return false;
       if (!priceErr && max != null && p.price > max) return false;
-      if (f.onlyNew && !["today", "new"].includes(p.status)) return false;
+      if (f.onlyNew && !(["today", "new"].includes(p.status) && daysSince(p.arrivedAt) <= 7)) return false;
       if (f.tryOn && !p.tryOn) return false;
       if (f.deals && !p.deal) return false;
       if (f.inStock && (p.status === "out" || p.status === "soon")) return false;
@@ -409,7 +409,7 @@ export function ProductPage({ params }: any) {
   if (!p || !m) return <div className="page"><Empty icon={Package} title="Produit introuvable" body="Cette publication a été retirée ou n'existe plus." action={<Btn onClick={() => go("home")}>Retour à l'accueil</Btn>} /></div>;
   const visible = p.state === "published" && m.status === "active";
   const c = catById(p.category);
-  const views = p.images.length ? p.images.length : 3;
+  const views = p.images.length;
   const similar = catalog.filter((x) => x.category === p.category && x.id !== p.id).slice(0, 4);
   const following = s.follows.includes(m.id);
   const buy = buyLink(p, m);
@@ -434,18 +434,18 @@ export function ProductPage({ params }: any) {
             <FavButton id={p.id} overlay />
             {p.sponsored && <span className="sponso">Sponsorisé</span>}
           </div>
-          <div className="gallery-thumbs">
+          {views > 1 && <div className="gallery-thumbs">
             {Array.from({ length: views }).map((_, i) => (
               <button key={i} className={cx(img === i && "is-on")} onClick={() => setImg(i)} aria-label={`Visuel ${i + 1}`}><ProductVisual p={p} variant={i} /></button>
             ))}
-          </div>
+          </div>}
           {!p.images.length && <p className="note"><Info size={14} /> Aucune photo fournie par le commerçant : visuel indicatif.</p>}
         </div>
 
         <div className="pinfo">
           <div className="pinfo-top">
             <button className="crumb" onClick={() => go("explore", { cat: p.category })}><c.icon size={14} /> {c.label}</button>
-            {p.deal && p.status !== "out" ? <DealPill p={p} /> : <StatusPill status={p.status} />}
+            {p.deal && p.status !== "out" ? <DealPill p={p} /> : <StatusPill status={p.status} at={p.arrivedAt} />}
           </div>
           <h1 className="pinfo-title">{p.name}</h1>
           {p.brand !== "Sans marque" && <div className="pinfo-brand">{p.brand}</div>}
@@ -524,7 +524,7 @@ export function ProductPage({ params }: any) {
         </div>
       </section>
 
-      <ReviewsBlock merchantId={m.id} productId={p.id} title="Avis sur ce produit" />
+      <ReviewsBlock merchantId={m.id} productId={p.id} productName={p.name} title="Avis sur ce produit" />
 
       {similar.length > 0 && (
         <section className="sec">
@@ -687,10 +687,6 @@ export function AlertsPage({ params }: any) {
         </div>
       )}
 
-      <div className="tip">
-        <Megaphone size={18} />
-        <div><strong>Tester la notification automatique</strong><p>Passez en mode Commerçant, publiez un arrivage correspondant à une alerte active (par exemple « GTA VI » pour 9 990 F en Gaming), puis revenez ici : la notification apparaît dans la cloche.</p></div>
-      </div>
 
       <Modal open={!!editing} onClose={() => setEditing(null)} title={editing?.id ? "Modifier l'alerte" : "Nouvelle alerte"}>
         {editing && <AlertForm initial={editing} onSave={save} onCancel={() => setEditing(null)} />}
@@ -815,14 +811,14 @@ export function MerchantPage({ params }: any) {
             <SectionHead title={m.categories.includes("restauration" as any) ? "À la carte en ce moment" : "Promos et offres en cours"} sub="Offres limitées, aux dates indiquées" />
             <div className="grid">{deals.map((p) => <ProductCard key={p.id} p={p} />)}</div>
           </section>}
-          <section className="sec">
+          {(latest.length > 0 || !deals.length) && <section className="sec">
             <SectionHead title="Derniers arrivages" sub={`${latest.length} publication${latest.length > 1 ? "s" : ""} en ligne`} />
             {latest.length ? <div className="grid">{latest.map((p) => <ProductCard key={p.id} p={p} />)}</div> : <Empty icon={Package} title="Aucun arrivage publié" />}
-          </section>
-          <section className="sec">
+          </section>}
+          {(next.length > 0 || !deals.length) && <section className="sec">
             <SectionHead title="Prochains arrivages" />
             {next.length ? <div className="grid">{next.map((p) => <ProductCard key={p.id} p={p} />)}</div> : <Empty icon={Calendar} title="Aucun arrivage annoncé" body="Suivez ce commerce pour être prévenu." />}
-          </section>
+          </section>}
           <ReviewsBlock merchantId={m.id} />
         </div>
         <aside className="mdetail-side">

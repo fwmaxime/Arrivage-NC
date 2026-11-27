@@ -1729,3 +1729,5 @@ input[type="range"]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 4px 
 .harrows-rail button { pointer-events: auto; width: 38px; height: 38px; background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow); color: var(--fg); opacity: 0; }
 .rail-wrap:hover .harrows-rail button:not(:disabled) { opacity: 1; }
 @media (hover: none) { .harrows-rail { display: none; } }
+.rv-write { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+@media (max-width: 640px) { .reviews-block .shead { flex-direction: column; align-items: flex-start; } .rv-write { justify-content: flex-start; } }
