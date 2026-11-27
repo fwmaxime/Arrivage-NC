@@ -86,7 +86,7 @@ export interface Merchant {
   id: string; name: string; tagline: string; description: string; commune: string; address: string;
   hours: string[]; phone: string; email: string; categories: CategoryId[]; color: string; ink: string;
   shape: "round" | "square" | "pill"; plan: PlanId; status: "active" | "suspended" | "pending" | "rejected"; verified: boolean; siret?: string; contactName?: string; appliedAt?: string; rejectReason?: string; source?: "inscription" | "admin";
-  followersBase: number; joinedAt: string; addressVerified: boolean; stores: string[]; logo?: string; ownerId?: string; planRequest?: PlanId | null;
+  followersBase: number; joinedAt: string; addressVerified: boolean; stores: string[]; logo?: string; ownerId?: string; planRequest?: PlanId | null; planRequestAt?: string | null; planRequestNote?: string | null;
   shopUrl?: string; // boutique en ligne ou page de paiement par défaut du commerçant
 }
 
@@ -125,3 +125,8 @@ export const norm = (s: string) => (s || "").toLowerCase().normalize("NFD").repl
 // Lien d'achat sûr (https uniquement) : celui du produit, sinon celui du commerce
 export const safeUrl = (u?: string) => { const x = (u || "").trim(); try { const url = new URL(x); return url.protocol === "https:" ? url.href : ""; } catch { return ""; } };
 export const buyLink = (p: { buyUrl?: string; tryOn?: boolean }, m?: { shopUrl?: string }) => p.tryOn ? "" : safeUrl(p.buyUrl) || safeUrl(m?.shopUrl);
+
+// Demandes de changement de forfait en attente (commerces actifs ou suspendus) : listées ici et comptées dans la pastille « Commerçants »
+export const planRequests = (list: Merchant[]): Merchant[] => list.filter((m) => m.planRequest && m.planRequest !== m.plan && (m.status === "active" || m.status === "suspended"))
+  .sort((a, b) => +new Date(a.planRequestAt || 0) - +new Date(b.planRequestAt || 0));
+

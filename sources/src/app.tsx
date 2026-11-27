@@ -19,7 +19,7 @@ import { FinanceSimulator } from "./finance-ui";
 import { AdminOverview, AdminMerchants, AdminUsers, AdminPosts, AdminCategories } from "./admin";
 import { AdminReports, MerchantModeration } from "./moderation";
 import { AdminMerchantsPage, MerchantSignup } from "./signup";
-import { planById } from "./data";
+import { planById, planRequests } from "./data";
 import { AdminMerchantDetail } from "./merchant-detail";
 import { MerchantReviews, AdminReviews } from "./reviews";
 import { MyReservations, MerchantReservations, AdminReservationsPanel } from "./reservations";
@@ -207,7 +207,7 @@ function AdminShell({ route, go }: any) {
   const open = s.reports.filter((r) => r.status === "open" || r.status === "fixed").length;
   const items = [
     { n: "overview", l: "Vue d'ensemble", i: LayoutDashboard }, { n: "finance", l: "Simulateur financier", i: Calculator },
-    { n: "merchants", l: "Commerçants", i: Store, badge: s.merchants.filter((m) => m.status === "pending").length }, { n: "users", l: "Utilisateurs", i: Users }, { n: "posts", l: "Publications", i: Package },
+    { n: "merchants", l: "Commerçants", i: Store, badge: s.merchants.filter((m) => m.status === "pending").length + planRequests(s.merchants).length }, { n: "users", l: "Utilisateurs", i: Users }, { n: "posts", l: "Publications", i: Package },
     { n: "categories", l: "Catégories", i: Layers }, { n: "reports", l: "Signalements", i: Flag, badge: open },
     { n: "reviews", l: "Avis clients", i: Star, badge: s.reviews.filter((r) => r.status === "pending").length },
     { n: "theme", l: "Personnalisation", i: Palette },
@@ -215,7 +215,7 @@ function AdminShell({ route, go }: any) {
   const page = (() => {
     switch (route.name) {
       case "finance": return <FinanceSimulator />;
-      case "merchants": return <AdminMerchantsPage />;
+      case "merchants": return <AdminMerchantsPage params={route.params} key={route.params?.tab || ""} />;
       case "users": return <AdminUsers />;
       case "posts": return <AdminPosts />;
       case "categories": return <AdminCategories />;

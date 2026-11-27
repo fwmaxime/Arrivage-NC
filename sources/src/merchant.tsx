@@ -677,6 +677,8 @@ export function PlansPage({ merchantId, admin }: { merchantId?: string; admin?: 
           <div><h1 className="page-title">Forfaits professionnels</h1><p className="muted">Gratuit pour les consommateurs, financé par les commerçants. Choisissez un forfait : l'équipe ARRIVAGE vous contacte pour l'activer.</p></div>
         </div>
       )}
+      {!admin && m.planRequest && m.planRequest !== m.plan && <div className="banner-info"><Info size={16} /> Demande de passage au forfait {planById(m.planRequest).name} envoyée{m.planRequestAt ? " " + fmtRel(m.planRequestAt) : ""}. L'équipe ARRIVAGE vous contacte pour l'activer.</div>}
+      {!admin && !m.planRequest && m.planRequestNote && <div className="banner-warn"><Info size={16} /> Votre dernière demande de forfait n'a pas été retenue : {m.planRequestNote}. Écrivez à contact@arrivagenc.com pour en parler.</div>}
       <div className="plans">
         {PLANS.map((p) => {
           const current = m.plan === p.id;
@@ -707,7 +709,7 @@ export function PlansPage({ merchantId, admin }: { merchantId?: string; admin?: 
           {admin || !planById(pick).price ? null : <div className="banner-info"><Info size={16} /> Aucun paiement en ligne : votre demande est transmise à l'équipe ARRIVAGE, qui vous contacte pour l'activation et la facturation.</div>}
           <div className="row-end"><Btn variant="ghost" onClick={() => setPick(null)}>Annuler</Btn><Btn onClick={() => {
             const direct = admin || s.me?.role === "admin";
-            mutate((d) => { const x = d.merchants.find((y) => y.id === m.id)!; const old = x.plan; if (direct) { x.plan = pick; x.planRequest = null; if (pick !== "premium") d.products.forEach((p) => { if (p.merchantId === m.id) p.sponsored = false; }); } else x.planRequest = pick; log(d, direct ? `${m.name} : forfait ${planById(old).name} → ${planById(pick).name}` : `${m.name} demande le forfait ${planById(pick).name}`, direct ? "admin" : "commerçant"); });
+            mutate((d) => { const x = d.merchants.find((y) => y.id === m.id)!; const old = x.plan; if (direct) { x.plan = pick; x.planRequest = null; x.planRequestAt = null; if (pick !== "premium") d.products.forEach((p) => { if (p.merchantId === m.id) p.sponsored = false; }); } else { x.planRequest = pick; x.planRequestAt = new Date().toISOString(); x.planRequestNote = null; } log(d, direct ? `${m.name} : forfait ${planById(old).name} → ${planById(pick).name}` : `${m.name} demande le forfait ${planById(pick).name}`, direct ? "admin" : "commerçant"); });
             toast(direct ? `Forfait ${planById(pick).name} activé` : `Demande envoyée : l'équipe ARRIVAGE vous recontacte`); setPick(null);
           }}>{admin || s.me?.role === "admin" ? "Confirmer le changement" : "Envoyer la demande"}</Btn></div>
         </>}
