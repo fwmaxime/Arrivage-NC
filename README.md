@@ -9,6 +9,8 @@ Site : https://arrivagenc.com (GitHub Pages, branche `main`, racine).
 Remettre en maintenance à la main (secours) : `cp maintenance.html index.html && git commit -am "Maintenance" && git push`.
 Mettre à jour le site officiel après un build : `bash sources/build.sh "$PWD/demo-x7q4/index.html" && grep -v 'name="robots"' demo-x7q4/index.html > index.html`.
 
+**Appli installable et nouvelle identité sur le site officiel depuis le 28/11/2026** (PR 15).
+
 - `demo-x7q4/index.html` : le prototype interactif complet (données fictives, paiement simulé), mis de côté et non référencé (noindex).
 - `sources/` : le code source du prototype (React + TypeScript, assemblé avec esbuild via `build.sh`).
 - `CNAME` : domaine personnalisé, à ne pas supprimer.
