@@ -320,15 +320,24 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     };
     const tb = setInterval(checkBlocked, 20000);
     document.addEventListener("visibilitychange", checkBlocked);
-    // rafraîchissement régulier (nouvelles réservations, signalements…)
-    // Rafraîchissement : léger toutes les 90 s (lignes modifiées seulement), complet toutes les 15 min
+    // Mises à jour en direct : le serveur prévient dès qu'un commerce, un produit, un avis ou un réglage change (Supabase Realtime),
+    // et la page récupère les lignes modifiées quelques instants après, sans rechargement. Voir README, « Mises à jour en direct ».
+    let live = false, soon: any = null;
+    const kick = () => { clearTimeout(soon); soon = setTimeout(() => { if (document.visibilityState === "visible") refresh(); }, 700); };
+    const ch = sb.channel("arrivage-live");
+    for (const table of ["merchants", "products", "reviews", "config"]) ch.on("postgres_changes" as any, { event: "*", schema: "public", table }, kick);
+    ch.subscribe((st: string) => { const was = live; live = st === "SUBSCRIBED"; if (live && !was) kick(); });
+    // Filet de sécurité : léger toutes les 30 s si le direct ne passe pas (sinon 1 min connecté, 2 min visiteur), complet toutes les 15 min ; et au retour sur l'onglet
     let ticks = 0;
     const t = setInterval(() => {
-      if (document.visibilityState !== "visible" || !cur.current.me) return;
+      if (document.visibilityState !== "visible") return;
       ticks++;
-      if (ticks % 10 === 0) loadAll(cur.current.me); else refresh();
-    }, 90000);
-    return () => { sub.subscription.unsubscribe(); clearInterval(t); clearInterval(tb); document.removeEventListener("visibilitychange", checkBlocked); };
+      if (ticks % 30 === 0) loadAll(cur.current.me);
+      else if (!live || ticks % (cur.current.me ? 2 : 4) === 0) refresh();
+    }, 30000);
+    const back = () => { if (document.visibilityState === "visible") refresh(); };
+    document.addEventListener("visibilitychange", back);
+    return () => { sub.subscription.unsubscribe(); sb!.removeChannel(ch); clearTimeout(soon); clearInterval(t); clearInterval(tb); document.removeEventListener("visibilitychange", checkBlocked); document.removeEventListener("visibilitychange", back); };
   }, []);
 
   // ---------- Envoi des modifications au serveur ----------
@@ -444,12 +453,38 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   // Rafraîchissement léger : seulement les lignes modifiées depuis la dernière fois (+ la liste des identifiants pour voir les suppressions)
   const lastSync = useRef<string>("");
+  // Visiteurs connectés ou non : les commerces, produits, avis et réglages publics ; les comptes ont en plus leurs réservations, signalements, équipe.
+  const refreshing = useRef<0 | 1 | 2>(0); // 1 = en cours, 2 = en cours + un autre demandé
   async function refresh() {
+    if (refreshing.current) { refreshing.current = 2; return; }
+    refreshing.current = 1;
+    try { await refreshOnce(); } finally {
+      const again = (refreshing.current as number) === 2;
+      refreshing.current = 0;
+      if (again) refresh();
+    }
+  }
+  async function refreshOnce() {
     const me = cur.current.me;
-    if (!sb || !me || !lastSync.current) return;
+    if (!sb || !lastSync.current) return;
     const since = lastSync.current;
     const started = new Date(Date.now() - 120000).toISOString();
-    for (const c of ["merchants", "products", "reviews", "reservations", "reports", "staff"] as const) {
+    // Réglages (stand-by, catégories) : appliqués sauf si une modification locale est en cours d'envoi
+    const cfgRes = await sb.from("config").select("data").eq("id", "main").maybeSingle();
+    if (!cfgRes.error && cfgRes.data) {
+      const cfg: any = cfgRes.data.data || {};
+      const settings = { manualApproval: true, moderateReviews: true, ...(cfg.settings || {}) };
+      const categories = CATEGORIES.map((c) => ({ id: c.id, active: (cfg.categories || []).find((x: any) => x.id === c.id)?.active ?? true }));
+      const server = stable({ settings, categories });
+      if (server !== syncedCfg.current) setS((prev) => {
+        if (stable({ settings: prev.settings, categories: prev.categories }) !== syncedCfg.current) return prev;
+        syncedCfg.current = server;
+        return { ...prev, settings, categories };
+      });
+    }
+    let newProducts = false;
+    const colls = me ? (["merchants", "products", "reviews", "reservations", "reports", "staff"] as const) : (["merchants", "products", "reviews"] as const);
+    for (const c of colls) {
       const [chg, ids] = await Promise.all([
         sb.from(c).select("id,data").gt("updated_at", since).limit(2000),
         sb.from(c).select("id").limit(10000),
@@ -457,6 +492,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       if (chg.error || ids.error) continue;
       const alive = new Set((ids.data || []).map((x: any) => x.id));
       const rows = (chg.data || []).map((r: any) => ({ ...r.data, id: r.id }));
+      if (c === "products" && rows.length) newProducts = true;
       setS((prev) => {
         const map = synced.current[c] || (synced.current[c] = new Map());
         // retirées sur le serveur (sauf créations locales pas encore envoyées)
@@ -473,6 +509,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         return { ...prev, [c]: list };
       });
     }
+    // Un produit qui vient d'arriver déclenche tout de suite les alertes et les abonnements du visiteur
+    if (newProducts) setS((prev) => checkAlerts(prev));
     lastSync.current = started;
   }
 

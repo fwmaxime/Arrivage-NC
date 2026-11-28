@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { reloadIfStale } from "./update";
 import { LegalPage, LegalLinks, type LegalTab } from "./legal";
 import { toHash, fromHash } from "./url";
 import { useBlockGate, BlockedPage } from "./blocked";
@@ -332,6 +333,7 @@ function App() {
       if (kind === "push") history.pushState({ depth: (history.state?.depth || 0) + 1 }, "", url);
       else history.replaceState({ ...(history.state || {}), depth: history.state?.depth || 0 }, "", url);
     } catch {}
+    if (kind === "push") reloadIfStale();
   }, [s.ready, mode, route, ui]);
   useEffect(() => {
     try { history.scrollRestoration = "manual"; } catch {}
