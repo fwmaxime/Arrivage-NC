@@ -39,7 +39,7 @@ function MerchantToDo({ me }: { me: Merchant }) {
     { n: mine.filter((p) => p.state === "published" && p.status === "out").length, l: "annonce(s) épuisée(s) : remettre en stock ou retirer", run: () => go("posts", { tab: "out" }) },
     { n: s.reviews.filter((r) => r.merchantId === me.id && r.status === "published" && +new Date(r.at) > week).length, l: "nouvel(s) avis client cette semaine", run: () => go("reviews") },
   ].filter((x) => x.n > 0);
-  if (!items.length) return null;
+  if (!items.length) return <div className="todo-card is-empty"><Check size={16} /> Rien à faire pour le moment.</div>;
   return (
     <div className="todo-card">
       <strong>À faire</strong>
