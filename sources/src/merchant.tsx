@@ -95,7 +95,7 @@ export function MerchantDashboard() {
           <h1 className="page-title">Bonjour, {me.name}</h1>
           <p className="muted">Vue d'ensemble de vos arrivages</p>
         </div>
-        <Btn icon={Plus} onClick={() => go("publish")}>Publier un arrivage</Btn>
+        <Btn icon={Plus} className="hide-md" onClick={() => go("publish")}>Publier un arrivage</Btn>
       </div>
 
       {me.status !== "active" && <div className="banner-warn"><Info size={16} /> {me.status === "pending" ? "Compte en attente de validation par l'équipe ARRIVAGE : vos publications ne sont pas encore visibles." : "Compte suspendu par la modération : vos publications ne sont plus visibles."}</div>}
@@ -252,7 +252,7 @@ export function PostsPage({ params }: { params?: any } = {}) {
     <div className="page">
       <div className="page-head">
         <div><h1 className="page-title">Mes publications</h1><p className="muted">{plan.quota ? `${Math.max(0, quotaLeft)} publication(s) restante(s) ce mois-ci sur votre forfait ${plan.name}` : `Publications illimitées avec le forfait ${plan.name}`}</p></div>
-        {!stockOnly && <div className="row"><Btn variant="outline" icon={isResto(me) ? UtensilsCrossed : Flame} onClick={() => go("publish", { deal: 1 })}>{isResto(me) ? "Nouvelle offre" : "Créer une promo"}</Btn><Btn icon={Plus} onClick={() => go("publish")}>Nouvel arrivage</Btn></div>}
+        {!stockOnly && <div className="row"><Btn variant="outline" icon={isResto(me) ? UtensilsCrossed : Flame} onClick={() => go("publish", { deal: 1 })}>{isResto(me) ? "Nouvelle offre" : "Créer une promo"}</Btn><Btn icon={Plus} className="hide-md" onClick={() => go("publish")}>Nouvel arrivage</Btn></div>}
       </div>
       <div className="posts-tools">
         <div className="search search-inline"><Search size={18} className="search-ico" /><input id="mp-q" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Chercher dans mes produits" aria-label="Chercher dans mes publications" autoComplete="off" /></div>

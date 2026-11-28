@@ -1,6 +1,6 @@
 // Aides de navigation : menu « Plus » de la barre du bas (mobile, iPad en portrait) et recherche globale de l'espace Admin.
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Search, X, Crown, Store, User, Package, BellRing, Heart, ShoppingBag, ChevronRight, LogIn, HelpCircle, Plus } from "lucide-react";
+import { Search, X, Crown, Store, User, Package, BellRing, Heart, ShoppingBag, ChevronRight, LogIn } from "lucide-react";
 import { useStore } from "./store";
 import { useNav } from "./nav";
 import { norm, fmtXPF } from "./data";
@@ -130,10 +130,6 @@ export function MePage() {
             {r.badge ? <span className="me-badge">{r.badge}</span> : <ChevronRight size={18} className="muted" />}
           </button>
         ))}
-      </div>
-      <div className="me-links">
-        <button className="link" onClick={() => go("how", {})}><HelpCircle size={15} /> Comment ça marche ?</button>
-        <button className="link" onClick={() => go("signup", {})}><Plus size={15} /> Inscrire mon commerce</button>
       </div>
     </div>
   );
