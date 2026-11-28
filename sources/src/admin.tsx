@@ -8,6 +8,7 @@ import { useNav } from "./nav";
 import { CATEGORIES, PLANS, planById, catById, fmtXPF, fmtNum, fmtRel, norm, planRequests } from "./data";
 import { Btn, IconBtn, Stat, Segmented, StatusPill, ProductVisual, MerchantLogo, Empty, DemoTag, cx, Confirm, Chip, Modal, Field } from "./ui";
 import { StatePill } from "./merchant";
+import { FilterTag } from "./navkit";
 
 const tipStyle = { background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 10, fontSize: 12, color: "var(--fg)" };
 const PCOL: Record<string, string> = { free: "#D9D4C7", starter: "var(--ch-c)", business: "var(--c1)", premium: "var(--ch-acc)" };
@@ -186,10 +187,10 @@ export function AdminDeleteModal({ target, onClose, onDone }: { target: { kind: 
   );
 }
 
-export function AdminUsers() {
+export function AdminUsers({ params }: { params?: any } = {}) {
   const { s, mutate, toast, log } = useStore();
   const [del, setDel] = useState<any>(null);
-  const [q, setQ] = useState("");
+  const [q, setQ] = useState(params?.q || "");
   const ROLE: Record<string, string> = { client: "Client", merchant: "Commerçant", admin: "Admin" };
   const list = s.users.filter((u) => !q || norm(u.label + " " + u.email).includes(norm(q))).sort((a, b) => +new Date(b.joinedAt) - +new Date(a.joinedAt));
   return (
@@ -217,13 +218,14 @@ export function AdminUsers() {
   );
 }
 
-export function AdminPosts() {
+export function AdminPosts({ params }: { params?: any } = {}) {
   const { s, mutate, toast, log } = useStore();
-  const { setMode } = useNav();
-  const [q, setQ] = useState("");
+  const { setMode, go } = useNav();
+  const [q, setQ] = useState(params?.q || "");
+  const fm = params?.m ? s.merchants.find((x) => x.id === params.m) : undefined;
   const [tab, setTab] = useState("all");
   const [del, setDel] = useState<any>(null);
-  const list = s.products.filter((p) => (tab === "all" || (tab === "featured" ? p.featured || p.sponsored : p.state === tab)) && (!q || norm(p.name + p.brand).includes(norm(q))));
+  const list = s.products.filter((p) => (!fm || p.merchantId === fm.id) && (tab === "all" || (tab === "featured" ? p.featured || p.sponsored : p.state === tab)) && (!q || norm(p.name + p.brand).includes(norm(q))));
   const upd = (id: string, fn: (p: any) => void, msg: string) => { mutate((d) => { const p = d.products.find((x) => x.id === id)!; fn(p); log(d, msg, "admin"); }); toast(msg); };
   return (
     <div className="page">
@@ -231,6 +233,7 @@ export function AdminPosts() {
       <div className="row" style={{ marginBottom: 16, flexWrap: "wrap" }}>
         <Segmented value={tab} onChange={setTab} options={[{ v: "all", l: "Toutes" }, { v: "published", l: "En ligne" }, { v: "hidden", l: "Masquées" }, { v: "featured", l: "Mises en avant" }, { v: "draft", l: "Brouillons" }]} />
         <div className="search search-inline" style={{ maxWidth: 300 }}><Search size={18} className="search-ico" /><input id="ap-q" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Rechercher" aria-label="Rechercher" /></div>
+        {fm && <FilterTag label={`Commerce : ${fm.name}`} onClear={() => go("posts", q ? { q } : {})} />}
       </div>
       <div className="posts">
         {!list.length && <Empty icon={Package} title="Aucune publication" />}

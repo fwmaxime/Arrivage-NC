@@ -4,7 +4,7 @@ import { toHash, fromHash } from "./url";
 import { useBlockGate, BlockedPage } from "./blocked";
 import { HowPage } from "./how";
 import { createRoot } from "react-dom/client";
-import { Home as HomeI, Compass, BellRing, Heart, Store, Bell, User, MapPin, LayoutDashboard, Package, Plus, Target, Crown, Settings, Calculator, Users, Flag, Layers, ShieldCheck, RotateCcw, Search, X, ChevronDown, Ban, Palette, ShoppingBag, Map as MapIco, Star, FileSpreadsheet, Users as UsersIco, PackageSearch } from "lucide-react";
+import { Home as HomeI, Compass, BellRing, Heart, Store, Bell, User, MapPin, LayoutDashboard, Package, Plus, Target, Crown, Settings, Calculator, Users, Flag, Layers, ShieldCheck, RotateCcw, Search, X, ChevronDown, Ban, Palette, ShoppingBag, Map as MapIco, Star, FileSpreadsheet, Users as UsersIco, PackageSearch, LayoutGrid } from "lucide-react";
 import { TeamPage, ActAsBanner, NoAccess, JoinTeamPage } from "./team";
 import { ImportPage } from "./import";
 import { can as roleCan, ROUTE_PERM, roleById } from "./staff";
@@ -17,6 +17,7 @@ import { Explore, ProductPage, AlertsPage, FavoritesPage, MerchantsPage, Merchan
 import { Home, SearchBox } from "./home";
 import { DemoProvider, DemoBanner, useDemo } from "./demo";
 import { MerchantWantedPage, AdminWantedPage } from "./wanted";
+import { MoreSheet, AdminSearch } from "./navkit";
 import { MerchantDashboard, PostsPage, PublishPage, DemandPage, PlansPage, ShopProfile, useMe } from "./merchant";
 import { FinanceSimulator } from "./finance-ui";
 import { AdminOverview, AdminMerchants, AdminUsers, AdminPosts, AdminCategories } from "./admin";
@@ -167,12 +168,14 @@ function MerchantShellIn({ route, go }: any) {
     { n: "shop", l: "Ma fiche", s: "Fiche", i: Settings },
     { n: "theme", l: "Personnalisation", s: "Thème", i: Palette },
   ].filter((x) => !acting || ROUTE_PERM[x.n] == null || roleCan(acting.role, ROUTE_PERM[x.n]!));
+  const [more, setMore] = useState(false);
+  useEffect(() => setMore(false), [route.name]);
   const blocked = acting && ROUTE_PERM[route.name] != null && !roleCan(acting.role, ROUTE_PERM[route.name]!);
   const page = blocked ? <NoAccess member={acting!} /> : (() => {
     switch (route.name) {
       case "import": return <ImportPage />;
       case "team": return <TeamPage />;
-      case "posts": return <PostsPage />;
+      case "posts": return <PostsPage params={route.params} />;
       case "publish": return <PublishPage params={route.params} key={route.params?.id || "new"} />;
       case "demand": return <DemandPage />;
       case "wanted": return <MerchantWantedPage me={me} />;
@@ -203,40 +206,58 @@ function MerchantShellIn({ route, go }: any) {
         <div className="side-foot"><span className={cx("plan-badge", `plan-${plan.id}`)}>{plan.name}</span><span className="micro">{me.status === "pending" ? "En attente de validation" : me.status === "suspended" ? "Suspendu" : "En ligne"}</span></div>
       </aside>
       <div className="side-main">
-        <div className="mtop show-md">{switcher}<div className="mtop-links"><button className={cx(route.name === "moderation" && "is-on")} onClick={() => go("moderation")}><ShieldCheck size={15} /> Modération{modUnread ? <span className="side-badge">{modUnread}</span> : null}</button><button className={cx(route.name === "wanted" && "is-on")} onClick={() => go("wanted")}><PackageSearch size={15} /> Recherchés</button><button className={cx(route.name === "shop" && "is-on")} onClick={() => go("shop")}><Settings size={15} /> Ma fiche</button>{(!acting || roleCan(acting.role, "publish")) && <button className={cx(route.name === "import" && "is-on")} onClick={() => go("import")}><FileSpreadsheet size={15} /> Import</button>}{(!acting || roleCan(acting.role, "billing")) && <button className={cx(route.name === "plans" && "is-on")} onClick={() => go("plans")}><Crown size={15} /> Forfaits</button>}<button className={cx(route.name === "reviews" && "is-on")} onClick={() => go("reviews")}><Star size={15} /> Avis</button>{(!acting || roleCan(acting.role, "team")) && <button className={cx(route.name === "team" && "is-on")} onClick={() => go("team")}><UsersIco size={15} /> Équipe</button>}<button className={cx(route.name === "theme" && "is-on")} onClick={() => go("theme")}><Palette size={15} /> Thème</button></div></div>
+        <div className="mtop show-md">{switcher}</div>
         {employee ? <div className="actas"><UsersIco size={16} /><span>Vous êtes connecté comme <b>{roleName(employee.role)}</b> de {me.name}. Certaines pages sont réservées au propriétaire.</span></div> : acting && <ActAsBanner member={acting} />}
         <main key={route.name + (route.params?.id || "")}>{page}</main>
       </div>
       <nav className="bottomnav show-md">
-        {items.filter((x) => x.n !== "shop" && x.n !== "moderation" && x.n !== "theme" && x.n !== "plans" && x.n !== "reviews" && x.n !== "team" && x.n !== "import" && x.n !== "wanted").map((x) => <button key={x.n} className={cx(route.name === x.n && "is-on", x.cta && "bn-cta")} onClick={() => go(x.n, {})}><x.i size={20} /><span>{x.s}</span></button>)}
+        {items.filter((x) => BN_MAIN.includes(x.n)).map((x) => <button key={x.n} className={cx(route.name === x.n && "is-on", x.cta && "bn-cta")} onClick={() => go(x.n, {})}><x.i size={20} /><span>{x.s}</span></button>)}
+        <MoreButton items={items.filter((x) => !BN_MAIN.includes(x.n))} route={route} onOpen={() => setMore(true)} />
       </nav>
+      <MoreSheet open={more} onClose={() => setMore(false)} groups={groupItems(items.filter((x) => !BN_MAIN.includes(x.n)), MERCHANT_GROUPS)} active={route.name} go={go} />
     </div>
   );
+}
+
+// Barre du bas sur mobile : 4 pages principales + « Plus » qui ouvre toutes les autres, rangées par thème
+const BN_MAIN = ["dashboard", "posts", "publish", "demand"];
+const ADMIN_MAIN = ["overview", "merchants", "reports", "reviews"];
+const MERCHANT_GROUPS: [string, string[]][] = [["Ma boutique", ["shop", "reviews", "theme"]], ["Clients", ["wanted", "moderation", "reservations", "import"]], ["Compte", ["plans", "team"]]];
+const ADMIN_GROUPS: [string, string[]][] = [["Plateforme", ["users", "posts", "categories", "wanted"]], ["Outils", ["finance", "theme"]]];
+function groupItems(items: any[], groups: [string, string[]][]) {
+  return groups.map(([title, names]) => ({ title, items: names.map((n) => items.find((x) => x.n === n)).filter(Boolean) })).filter((g) => g.items.length);
+}
+function MoreButton({ items, route, onOpen }: any) {
+  const badge = items.reduce((a: number, x: any) => a + (x.badge || 0), 0);
+  const on = items.some((x: any) => x.n === route.name);
+  return <button className={cx(on && "is-on")} onClick={onOpen} aria-haspopup="dialog"><span className="bn-ico"><LayoutGrid size={20} />{badge > 0 && <span className="badge">{badge}</span>}</span><span>Plus</span></button>;
 }
 
 // ---------- Administrateur ----------
 function AdminShell({ route, go }: any) {
   const { s } = useStore();
+  const [more, setMore] = useState(false);
+  useEffect(() => setMore(false), [route.name]);
   const open = s.reports.filter((r) => r.status === "open" || r.status === "fixed").length;
-  const items = [
-    { n: "overview", l: "Vue d'ensemble", i: LayoutDashboard }, { n: "finance", l: "Simulateur financier", i: Calculator },
-    { n: "merchants", l: "Commerçants", i: Store, badge: s.merchants.filter((m) => m.status === "pending").length + planRequests(s.merchants).length }, { n: "users", l: "Utilisateurs", i: Users }, { n: "posts", l: "Publications", i: Package },
-    { n: "categories", l: "Catégories", i: Layers }, { n: "reports", l: "Signalements", i: Flag, badge: open },
+  const items: any[] = [
+    { n: "overview", l: "Vue d'ensemble", s: "Accueil", i: LayoutDashboard }, { n: "finance", l: "Simulateur financier", s: "Finances", i: Calculator },
+    { n: "merchants", l: "Commerçants", s: "Commerces", i: Store, badge: s.merchants.filter((m) => m.status === "pending").length + planRequests(s.merchants).length }, { n: "users", l: "Utilisateurs", i: Users }, { n: "posts", l: "Publications", i: Package },
+    { n: "categories", l: "Catégories", i: Layers }, { n: "reports", l: "Signalements", s: "Signalés", i: Flag, badge: open },
     { n: "wanted", l: "Produits recherchés", i: PackageSearch },
-    { n: "reviews", l: "Avis clients", i: Star, badge: s.reviews.filter((r) => r.status === "pending").length },
+    { n: "reviews", l: "Avis clients", s: "Avis", i: Star, badge: s.reviews.filter((r) => r.status === "pending").length },
     { n: "theme", l: "Personnalisation", i: Palette },
   ];
   const page = (() => {
     switch (route.name) {
       case "finance": return <FinanceSimulator />;
       case "merchants": return <AdminMerchantsPage params={route.params} key={route.params?.tab || ""} />;
-      case "users": return <AdminUsers />;
-      case "posts": return <AdminPosts />;
+      case "users": return <AdminUsers params={route.params} />;
+      case "posts": return <AdminPosts params={route.params} />;
       case "categories": return <AdminCategories />;
-      case "reports": return <AdminReports />;
+      case "reports": return <AdminReports params={route.params} />;
       case "wanted": return <AdminWantedPage />;
       case "merchant": return <AdminMerchantDetail id={route.params?.id} />;
-      case "reviews": return <AdminReviews />;
+      case "reviews": return <AdminReviews params={route.params} />;
       case "theme": return <ThemeSettings />;
       default: return <AdminOverview />;
     }
@@ -249,9 +270,14 @@ function AdminShell({ route, go }: any) {
         <div className="side-foot"><ShieldCheck size={14} /><span className="micro">Espace administrateur</span></div>
       </aside>
       <div className="side-main">
-        <nav className="atabs show-md">{items.map((x) => <button key={x.n} className={cx((route.name === x.n || (x.n === "merchants" && route.name === "merchant")) && "is-on")} onClick={() => go(x.n)}><x.i size={15} />{x.l}{x.badge ? <span className="side-badge">{x.badge}</span> : null}</button>)}</nav>
-        <main key={route.name}>{page}</main>
+        <AdminSearch />
+        <main key={route.name + JSON.stringify(route.params || {})}>{page}</main>
       </div>
+      <nav className="bottomnav show-md">
+        {items.filter((x) => ADMIN_MAIN.includes(x.n)).map((x) => { const on = route.name === x.n || (x.n === "merchants" && route.name === "merchant"); return <button key={x.n} className={cx(on && "is-on")} onClick={() => go(x.n)}><span className="bn-ico"><x.i size={20} />{x.badge ? <span className="badge">{x.badge}</span> : null}</span><span>{x.s || x.l}</span></button>; })}
+        <MoreButton items={items.filter((x) => !ADMIN_MAIN.includes(x.n))} route={route} onOpen={() => setMore(true)} />
+      </nav>
+      <MoreSheet open={more} onClose={() => setMore(false)} groups={groupItems(items.filter((x) => !ADMIN_MAIN.includes(x.n)), ADMIN_GROUPS)} active={route.name} go={go} />
     </div>
   );
 }

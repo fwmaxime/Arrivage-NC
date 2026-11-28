@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { ChevronLeft, ShoppingBag, CreditCard, Undo2, Receipt, Package, Wallet, Eye, Phone, Mail, MapPin, User, CalendarDays, ShieldCheck, Ban, Check, Download, Trash2, ArrowUpRight, ArrowDownLeft, Flag, Activity as ActivityIco, Search, Store, Copy } from "lucide-react";
+import { ChevronLeft, ShoppingBag, CreditCard, Undo2, Receipt, Package, Wallet, Eye, Phone, Mail, MapPin, User, CalendarDays, ShieldCheck, Ban, Check, Download, Trash2, ArrowUpRight, ArrowDownLeft, Flag, Activity as ActivityIco, Search, Store, Copy, Star } from "lucide-react";
 import { fmtXPF, fmtNum, fmtRel, planById, PLANS, norm, statusLabel } from "./data";
 import { useStore } from "./store";
 import { useNav } from "./nav";
@@ -83,7 +83,7 @@ export function AdminMerchantDetail({ id }: { id: string }) {
 
   return (
     <div className="page md-page">
-      <button className="back" onClick={() => go("merchants")}><ChevronLeft size={18} /> Commerçants</button>
+      <nav className="crumbs" aria-label="Fil d'Ariane"><button className="back" onClick={() => go("merchants")}><ChevronLeft size={18} /> Commerçants</button><span aria-hidden>›</span><span className="crumb-here">{m.name}</span></nav>
       <div className="md-head">
         <MerchantLogo m={m} size={64} />
         <div className="md-id">
@@ -102,6 +102,14 @@ export function AdminMerchantDetail({ id }: { id: string }) {
           <Btn variant="ghost" size="sm" icon={Trash2} className="danger-text" onClick={() => setDel({ kind: "merchant", id: m.id, name: m.name, extra: products.length ? `${products.length} annonce(s) seront supprimées avec lui.` : undefined })}>Supprimer</Btn>
         </div>
         <AdminDeleteModal target={del} onClose={() => setDel(null)} onDone={() => go("merchants")} />
+      </div>
+
+      {/* Liens directs vers tout ce qui concerne ce commerce dans l'espace Admin */}
+      <div className="md-links">
+        <button onClick={() => go("posts", { m: m.id })}><Package size={15} /> {products.length} publication{products.length > 1 ? "s" : ""}</button>
+        <button onClick={() => go("reports", { m: m.id })} className={cx(reportsHere.some((r) => r.status === "open" || r.status === "fixed") && "is-hot")}><Flag size={15} /> {reportsHere.length} signalement{reportsHere.length > 1 ? "s" : ""}</button>
+        <button onClick={() => go("reviews", { m: m.id })}><Star size={15} /> {s.reviews.filter((r) => r.merchantId === m.id).length} avis</button>
+        <button onClick={() => setMode("consumer", { name: "merchant", params: { id: m.id } })}><Store size={15} /> Voir sa fiche comme un client</button>
       </div>
 
       <div className="stats">

@@ -27,6 +27,27 @@ const monthCount = (products: Product[], mid: string) => {
 
 const tipStyle = { background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 10, fontSize: 12, color: "var(--fg)" };
 
+// « À faire » : ce qui mérite un geste aujourd'hui, en un coup d'œil (comme « À traiter » côté admin)
+function MerchantToDo({ me }: { me: Merchant }) {
+  const { s } = useStore();
+  const { go } = useNav();
+  const mine = s.products.filter((p) => p.merchantId === me.id);
+  const week = Date.now() - 7 * 864e5;
+  const items = [
+    { n: mine.filter((p) => p.state === "draft").length, l: "brouillon(s) à publier", run: () => go("posts", { tab: "draft" }) },
+    { n: mine.filter(isStale).length, l: "annonce(s) à vérifier, sans mise à jour depuis 3 semaines", run: () => go("posts", { tab: "stale" }) },
+    { n: mine.filter((p) => p.state === "published" && p.status === "out").length, l: "annonce(s) épuisée(s) : remettre en stock ou retirer", run: () => go("posts", { tab: "out" }) },
+    { n: s.reviews.filter((r) => r.merchantId === me.id && r.status === "published" && +new Date(r.at) > week).length, l: "nouvel(s) avis client cette semaine", run: () => go("reviews") },
+  ].filter((x) => x.n > 0);
+  if (!items.length) return null;
+  return (
+    <div className="todo-card">
+      <strong>À faire</strong>
+      <div className="todo-list">{items.map((x) => <button key={x.l} className="todo-item" onClick={x.run}><b>{x.n}</b> {x.l}<span aria-hidden>›</span></button>)}</div>
+    </div>
+  );
+}
+
 // ---------- Tableau de bord ----------
 export function MerchantDashboard() {
   const { s } = useStore();
@@ -84,6 +105,7 @@ export function MerchantDashboard() {
       {s.reports.some((r) => r.merchantUnread && mine.some((p) => p.id === r.productId)) && (
         <button className="modbanner" onClick={() => go("moderation")}><Info size={16} /> <span>Vous avez un nouveau message de la modération concernant une publication signalée.</span><strong>Voir</strong></button>
       )}
+      <MerchantToDo me={me} />
       <WantedDashCard me={me} />
       <div className="stats">
         <Stat icon={Package} label="Publications actives" value={fmtNum(active.length)} sub={`${mine.filter((p) => p.state === "draft").length} brouillon(s) · ${mine.filter((p) => p.state === "scheduled").length} programmée(s)`} />
@@ -174,17 +196,38 @@ function Locked({ title, onUpgrade, small }: any) {
 }
 
 // ---------- Publications ----------
-export function PostsPage() {
+// Annonce qui n'a pas bougé depuis 3 semaines : à vérifier (encore en stock ? à mettre à jour ?)
+const STALE_DAYS = 21;
+export const isStale = (p: Product) => p.state === "published" && p.status !== "out" && p.status !== "soon" && Date.now() - Math.max(+new Date(p.updatedAt), +new Date(p.arrivedAt || p.updatedAt)) > STALE_DAYS * 864e5;
+
+// Stock en un geste depuis la liste : En stock / Stock limité / Épuisé
+function StockSwitch({ p, resto, onSet }: { p: Product; resto: boolean; onSet: (st: Status, msg: string) => void }) {
+  const cur = p.status === "out" ? "out" : p.status === "limited" ? "limited" : p.status === "soon" ? "" : "ok";
+  const opts = [
+    { v: "ok", l: resto ? "Disponible" : "En stock", st: (cur === "ok" ? p.status : resto || p.status === "soon" ? "today" : "restock") as Status, msg: resto ? "Marqué disponible" : p.status === "soon" ? "Marqué comme arrivé" : "Marqué de nouveau en stock" },
+    { v: "limited", l: resto ? "Dernières parts" : "Stock limité", st: "limited" as Status, msg: "Passé en stock limité" },
+    { v: "out", l: "Épuisé", st: "out" as Status, msg: "Passé en rupture de stock" },
+  ];
+  return (
+    <div className="stock-sw" role="group" aria-label="Stock">
+      {opts.map((o) => <button key={o.v} className={cx(cur === o.v && `is-on is-${o.v}`)} aria-pressed={cur === o.v} onClick={() => { if (cur !== o.v) onSet(o.st, o.msg); else if (o.v === "ok" && isStale(p)) onSet(p.status, "Annonce confirmée : toujours en stock"); }}>{o.l}</button>)}
+    </div>
+  );
+}
+
+export function PostsPage({ params }: { params?: any } = {}) {
   const { s, mutate, toast, log, publish } = useStore();
   const { go } = useNav();
   const me = useMe();
   // Vendeur (compte employé) : stock et disponibilité seulement
   const stockOnly = s.me?.role !== "admin" && me.ownerId !== s.me?.id && myStaffRow(s, me.id)?.role === "seller";
   const plan = planById(me.plan);
-  const [tab, setTab] = useState("all");
+  const [tab, setTab] = useState(params?.tab || "all");
+  const [q, setQ] = useState(params?.q || "");
   const [del, setDel] = useState<Product | null>(null);
   const mine = s.products.filter((p) => p.merchantId === me.id).sort((a, b) => +new Date(b.updatedAt) - +new Date(a.updatedAt));
-  const list = mine.filter((p) => tab === "all" || p.state === tab);
+  const nq = norm(q.trim());
+  const list = mine.filter((p) => (tab === "all" || (tab === "out" ? p.state === "published" && p.status === "out" : tab === "stale" ? isStale(p) : p.state === tab)) && (!nq || norm(`${p.name} ${p.brand || ""}`).includes(nq)));
   const upd = (id: string, fn: (p: Product) => void, msg: string) => { mutate((d) => { const p = d.products.find((x) => x.id === id); if (p) { fn(p); p.updatedAt = new Date().toISOString(); } }); toast(msg); };
   const used = monthCount(s.products, me.id);
   const quotaLeft = plan.quota == null ? Infinity : plan.quota - used;
@@ -202,17 +245,22 @@ export function PostsPage() {
     toast("Publication dupliquée en brouillon");
   };
 
-  const counts: any = { all: mine.length, published: 0, draft: 0, scheduled: 0, hidden: 0 };
+  const counts: any = { all: mine.length, published: 0, draft: 0, scheduled: 0, hidden: 0, out: mine.filter((p) => p.state === "published" && p.status === "out").length, stale: mine.filter(isStale).length };
   mine.forEach((p) => counts[p.state]++);
+  const resto = isResto(me);
   return (
     <div className="page">
       <div className="page-head">
         <div><h1 className="page-title">Mes publications</h1><p className="muted">{plan.quota ? `${Math.max(0, quotaLeft)} publication(s) restante(s) ce mois-ci sur votre forfait ${plan.name}` : `Publications illimitées avec le forfait ${plan.name}`}</p></div>
         {!stockOnly && <div className="row"><Btn variant="outline" icon={isResto(me) ? UtensilsCrossed : Flame} onClick={() => go("publish", { deal: 1 })}>{isResto(me) ? "Nouvelle offre" : "Créer une promo"}</Btn><Btn icon={Plus} onClick={() => go("publish")}>Nouvel arrivage</Btn></div>}
       </div>
-      <Segmented value={tab} onChange={setTab} options={[{ v: "all", l: `Toutes (${counts.all})` }, { v: "published", l: `En ligne (${counts.published})` }, { v: "scheduled", l: `Programmées (${counts.scheduled})` }, { v: "draft", l: `Brouillons (${counts.draft})` }, { v: "hidden", l: `Masquées (${counts.hidden})` }]} />
+      <div className="posts-tools">
+        <div className="search search-inline"><Search size={18} className="search-ico" /><input id="mp-q" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Chercher dans mes produits" aria-label="Chercher dans mes publications" autoComplete="off" /></div>
+        <Segmented value={tab} onChange={setTab} options={[{ v: "all", l: `Toutes (${counts.all})` }, { v: "published", l: `En ligne (${counts.published})` }, { v: "out", l: `Épuisées (${counts.out})` }, ...(counts.stale ? [{ v: "stale", l: `À vérifier (${counts.stale})` }] : []), { v: "scheduled", l: `Programmées (${counts.scheduled})` }, { v: "draft", l: `Brouillons (${counts.draft})` }, { v: "hidden", l: `Masquées (${counts.hidden})` }]} />
+      </div>
+      {tab === "stale" && <p className="note"><Info size={14} /> Ces annonces n'ont pas été mises à jour depuis plus de 3 semaines. Vérifiez qu'elles sont toujours en rayon : un geste sur « En stock » les remet à jour.</p>}
       <div className="posts">
-        {!list.length && <Empty icon={Package} title="Aucune publication ici" action={<Btn icon={Plus} onClick={() => go("publish")}>Publier un arrivage</Btn>} />}
+        {!list.length && (nq ? <Empty icon={Search} title={`Aucun produit ne correspond à « ${q.trim()} »`} action={<Btn variant="outline" onClick={() => setQ("")}>Effacer la recherche</Btn>} /> : <Empty icon={Package} title="Aucune publication ici" action={<Btn icon={Plus} onClick={() => go("publish")}>Publier un arrivage</Btn>} />)}
         {list.map((p) => (
           <div key={p.id} className="post">
             <span className="post-thumb"><ProductVisual p={p} /></span>
@@ -229,9 +277,7 @@ export function PostsPage() {
             </div>
             <div className="post-actions">
               {!stockOnly && (p.state === "draft" || p.state === "scheduled") && <Btn size="sm" icon={Send} onClick={() => publishNow(p)}>Publier</Btn>}
-              {p.state === "published" && p.status !== "limited" && p.status !== "out" && <Btn size="sm" variant="outline" icon={Zap} onClick={() => upd(p.id, (x) => (x.status = "limited"), "Passé en stock limité")}>Stock limité</Btn>}
-              {p.state === "published" && p.status !== "out" && <Btn size="sm" variant="outline" icon={Ban} onClick={() => upd(p.id, (x) => (x.status = "out"), "Passé en rupture de stock")}>Rupture</Btn>}
-              {p.state === "published" && (p.status === "out" || p.status === "limited") && <Btn size="sm" variant="outline" icon={RotateCcw} onClick={() => upd(p.id, (x) => { x.status = "restock"; x.arrivedAt = new Date().toISOString(); }, "Marqué comme réapprovisionné")}>Réappro.</Btn>}
+              {p.state === "published" && <StockSwitch p={p} resto={resto} onSet={(st, msg) => upd(p.id, (x) => { const back = (x.status === "out" || x.status === "limited" || x.status === "soon") && st !== "out" && st !== "limited"; x.status = st; if (back) x.arrivedAt = new Date().toISOString(); }, msg)} />}
               {!stockOnly && plan.can.sponsored && p.state === "published" && <Btn size="sm" variant="ghost" icon={Megaphone} onClick={() => upd(p.id, (x) => (x.sponsored = !x.sponsored), p.sponsored ? "Mise en avant retirée" : "Publication sponsorisée (simulation, sans paiement)")}>{p.sponsored ? "Retirer" : "Sponsoriser"}</Btn>}
               {!stockOnly && p.state === "published" && !p.deal && <Btn size="sm" variant="outline" icon={Flame} onClick={() => go("publish", { id: p.id, deal: 1 })}>Mettre en promo</Btn>}
               {!stockOnly && p.deal && dealState(p) === "ended" && <Btn size="sm" variant="outline" icon={RotateCcw} onClick={() => go("publish", { id: p.id, deal: 1, renew: 1 })}>Relancer</Btn>}
