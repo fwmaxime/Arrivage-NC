@@ -70,6 +70,8 @@
 }
 * { box-sizing: border-box; }
 html, body { background: var(--bg); color: var(--fg); }
+html { overflow-x: clip; }
+body { margin: 0; }
 body { font-family: var(--f-body); font-size: 14.5px; line-height: 1.5; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
 /* Appli installée (barre d état transparente) : le contenu commence sous l heure et la batterie */
 body { padding-top: env(safe-area-inset-top, 0px); }
@@ -115,6 +117,17 @@ p { margin: 0; }
 .demobar-r { margin-left: auto; opacity: .75; }
 .demobar-reset { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--green-fg) 22%, transparent); color: var(--green-fg); margin-left: auto; }
 .demobar-r + .demobar-reset { margin-left: 0; }
+/* Téléphone : la barre admin/commerçant ne doit jamais élargir la page ; les espaces défilent dans la pastille */
+@media (max-width: 640px) {
+  .demobar-in { gap: 8px; }
+  .demobar-l { flex: none; }
+  .mode-switch { flex: 1 1 auto; min-width: 0; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  .mode-switch::-webkit-scrollbar { display: none; }
+  .mode-switch button { padding: 5px 12px; flex: none; }
+  .mode-switch .hide-xs { display: none !important; }
+  .mode-switch .show-xs { display: inline !important; }
+  .demobar-theme { flex: none; }
+}
 .demobar-reset:hover { background: color-mix(in srgb, var(--green-fg) 9%, transparent); }
 
 /* Boutons */
