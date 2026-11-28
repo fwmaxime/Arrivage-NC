@@ -11,10 +11,11 @@ let js=fs.readFileSync("dist/app.js","utf8").replace(/<\/script/gi,"<\\/script")
 const css=fs.readFileSync("src/styles.css","utf8");
 const icon=fs.readFileSync("icon.html","utf8").trim();
 // Application installable (écran d accueil du téléphone) : manifeste, icônes, écrans de lancement iPhone. Voir pwa/.
-const splash=require("./pwa/splash-sizes.json").map(([w,h,r])=>`<link rel="apple-touch-startup-image" media="(device-width: ${w}px) and (device-height: ${h}px) and (-webkit-device-pixel-ratio: ${r}) and (orientation: portrait)" href="/icons/splash-${w*r}x${h*r}.png">`).join("\n");
+const splash=require("./pwa/splash-sizes.json").map(([w,h,r])=>`<link rel="apple-touch-startup-image" media="(device-width: ${w}px) and (device-height: ${h}px) and (-webkit-device-pixel-ratio: ${r}) and (orientation: portrait)" href="/icons/splash-${w*r}x${h*r}.png?v=2">`).join("\n");
 const pwa=`<link rel="manifest" href="manifest.webmanifest">
-<link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png">
-<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png?v=2">
+<link rel="shortcut icon" href="/favicon.ico?v=2">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png?v=2">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="ARRIVAGE">
@@ -38,7 +39,7 @@ const html=`<!doctype html>
 <meta name="theme-color" content="#0C253F">
 <meta property="og:title" content="ARRIVAGE">
 <meta property="og:description" content="Trouvez qui l’a, où et à quel prix : les arrivages des commerces de Nouvelle-Calédonie.">
-<meta property="og:image" content="https://arrivagenc.com/icons/og-arrivage.png">
+<meta property="og:image" content="https://arrivagenc.com/icons/og-arrivage.png?v=2">
 <meta property="og:image:width" content="1640">
 <meta property="og:image:height" content="624">
 ${icon}
