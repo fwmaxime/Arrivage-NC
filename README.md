@@ -67,11 +67,15 @@ Ordre à respecter. Chaque script peut être relancé sans risque. **Après tout
 6. `supabase/compte.sql` : bouton « Supprimer mon compte » (fonction `delete_my_account`).
 7. `supabase/admin.sql` : suppression d’un commerce ou d’un compte par un admin.
 8. `supabase/introuvables.sql` : « Je cherche ce produit » (table `wanted`, fonction `wanted_stats`).
+9. `supabase/direct.sql` : mises à jour en direct (déjà appliqué).
 
 **Pages légales** : `sources/src/legal.tsx` (mentions légales, confidentialité, conditions). Compléter l’objet `EDITOR` en haut du fichier (responsables, statut, adresse, directeur de la publication) avant de publier sur le site officiel.
 
 - **Photos** : enregistrées dans le stockage Supabase (bucket `photos/<id du commerce>/…`). Les anciennes photos enregistrées en texte sont déplacées automatiquement la première fois que le commerçant, un gérant ou un admin ouvre le site.
-- **Rafraîchissement** : un compte connecté ne recharge que les lignes modifiées toutes les 90 s, et tout le catalogue toutes les 15 min.
+- **Mises à jour en direct** (28/11/2026) : tous les visiteurs, connectés ou non, reçoivent les changements sans rafraîchir.
+  - Données (commerces, produits, prix, stocks, avis, stand-by, catégories) : Supabase Realtime prévient la page, qui recharge les lignes modifiées en moins de 2 secondes (`src/store.tsx`, canal « arrivage-live »). Une alerte ou un abonnement qui correspond à un nouveau produit s'affiche aussitôt.
+  - Filet de sécurité si le direct ne passe pas : lignes modifiées toutes les 30 s (sinon toutes les 1 à 2 min), au retour sur l'onglet, et catalogue complet toutes les 15 min.
+  - Nouvelle version du site : `build.sh` met un numéro de version (`<meta name="build">`). La page le compare à celui du serveur toutes les 2 min et se recharge d'elle-même au prochain changement de page ou au retour sur l'onglet (`src/update.ts`).
 - **Outil Excel** : `assets/xlsx-0.18.5.min.js` n'est chargé que sur la page Import (il n'est plus dans la page du site).
 - **Comptes employés** : Pro > Équipe (forfait Premium) > Inviter un membre. On envoie le lien et le code à l'employé, qui se connecte avec son propre compte sur `#/rejoindre-equipe`.
 

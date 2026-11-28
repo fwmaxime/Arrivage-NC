@@ -32,6 +32,7 @@ const html=`<!doctype html>
 <html lang="fr">
 <head>
 <meta charset="utf-8">
+<meta name="build" content="${Date.now().toString(36)}">
 <meta name="robots" content="noindex, nofollow">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>ARRIVAGE · Tout ce qui débarque, au même endroit</title>
