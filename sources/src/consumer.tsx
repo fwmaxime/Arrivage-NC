@@ -11,6 +11,7 @@ import { RatingBadge, ReviewsBlock } from "./reviews";
 import { AccountSection } from "./auth";
 import { WantedButton, WantedPrompt, MyWanted } from "./wanted";
 import { dealState, dealVisible, dealBadge, dealTitle, dealKindShort, dealWhen, dealPeriod, isRestoProduct, pctOff } from "./deals";
+import { pushView } from "./finder";
 import { Btn, IconBtn, StatusPill, Chip, ProductVisual, MerchantLogo, MerchantCover, Modal, Empty, SectionHead, Segmented, Field, DemoTag, cx } from "./ui";
 import { shareUrl } from "./url";
 import { useHScroll, HArrows } from "./hscroll";
@@ -403,7 +404,7 @@ export function ProductPage({ params }: any) {
   const counted = useRef<string | null>(null);
   useEffect(() => {
     setImg(0); setContact(false);
-    if (p && counted.current !== p.id) { counted.current = p.id; mutate((d) => { const x = d.products.find((y) => y.id === p.id); if (x) x.views++; }); }
+    if (p && counted.current !== p.id) { counted.current = p.id; pushView(p.id); mutate((d) => { const x = d.products.find((y) => y.id === p.id); if (x) x.views++; }); }
     window.scrollTo({ top: 0 });
   }, [params?.id]);
   const catalog = useCatalog();
@@ -703,10 +704,10 @@ export function AlertsPage({ params }: any) {
 }
 
 // ---------- Favoris ----------
-export function FavoritesPage() {
+export function FavoritesPage({ params }: any = {}) {
   const { s } = useStore();
   const { go } = useNav();
-  const [tab, setTab] = useState("products");
+  const [tab, setTab] = useState(params?.tab || "products");
   const favs = s.favorites.map((id) => s.products.find((p) => p.id === id)).filter(Boolean) as Product[];
   const follows = s.merchants.filter((m) => s.follows.includes(m.id));
   const upcoming = s.products.filter((p) => p.state === "published" && p.status === "soon" && (s.favorites.includes(p.id) || s.follows.includes(p.merchantId)));
@@ -784,8 +785,20 @@ export function MerchantPage({ params }: any) {
   const { back, go } = useNav();
   const m = s.merchants.find((x) => x.id === params?.id);
   const catalog = useCatalog();
+  // Rayon choisi : on descend directement aux produits (sur téléphone, l'adresse est affichée avant)
+  useEffect(() => { if (params?.rayon) { const t = setTimeout(() => { const el = document.getElementById(matchMedia("(max-width: 900px)").matches ? "m-prods" : "m-rayons"); if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 70, behavior: "smooth" }); }, 80); return () => clearTimeout(t); } }, [params?.rayon]);
   if (!m) return <div className="page"><Empty icon={Store} title="Commerce introuvable" /></div>;
-  const prods = catalog.filter((p) => p.merchantId === m.id);
+  const all = catalog.filter((p) => p.merchantId === m.id);
+  // Rayons : raccourcis en haut de la fiche pour n'afficher qu'une partie des produits
+  const rayons = [
+    ...(all.some((p) => p.deal) ? [{ v: "promos", l: m.categories.includes("restauration" as any) ? "À la carte" : "Promos" }] : []),
+    ...(all.some((p) => p.status === "soon") ? [{ v: "soon", l: "Bientôt" }] : []),
+    ...Array.from(new Set(all.map((p) => p.category))).map((c) => ({ v: "c:" + c, l: catById(c).label, icon: catById(c).icon })),
+  ];
+  const showRayons = all.length >= 4 && rayons.length >= 2;
+  const rayon = showRayons && rayons.some((r) => r.v === params?.rayon) ? params.rayon : "all";
+  const prods = rayon.startsWith("c:") ? all.filter((p) => p.category === rayon.slice(2)) : all;
+  const only = (k: string) => rayon === "all" || rayon.startsWith("c:") || rayon === k;
   const deals = prods.filter((p) => p.deal).sort((a, b) => +new Date(a.deal!.startAt) - +new Date(b.deal!.startAt));
   const latest = prods.filter((p) => p.status !== "soon" && !p.deal).sort((a, b) => +new Date(b.publishedAt) - +new Date(a.publishedAt));
   const next = prods.filter((p) => p.status === "soon");
@@ -806,19 +819,25 @@ export function MerchantPage({ params }: any) {
           <div className="row"><FollowBtn m={m} size="md" /><IconBtn icon={Share2} label="Partager ce commerce" onClick={async () => { const url = shareUrl({ name: "merchant", params: { id: m.id } }); const nav: any = navigator; if (nav.share && matchMedia("(pointer: coarse)").matches) { try { await nav.share({ title: m.name, text: `${m.name} sur ARRIVAGE`, url }); return; } catch (e: any) { if (e?.name === "AbortError") return; } } try { await navigator.clipboard.writeText(url); toast("Lien du commerce copié"); } catch { toast("Copie impossible ici", "warn"); } }} /></div>
         </div>
       </div>
+      {showRayons && (
+        <div className="rayons" id="m-rayons" role="tablist" aria-label="Rayons">
+              <button role="tab" aria-selected={rayon === "all"} className={cx("chip", rayon === "all" && "is-on")} onClick={() => go("merchant", { id: m.id })}>Nouveautés</button>
+              {rayons.map((r: any) => <button key={r.v} role="tab" aria-selected={rayon === r.v} className={cx("chip", rayon === r.v && "is-on")} onClick={() => go("merchant", { id: m.id, rayon: r.v })}>{r.icon && <r.icon size={14} />}{r.l}</button>)}
+            </div>
+      )}
       <div className="mdetail">
-        <div className="mdetail-main">
+        <div className="mdetail-main" id="m-prods">
           <p className="lead">{m.description}</p>
-          <div className="chips-wrap">{m.categories.map((c) => <Chip key={c} icon={catById(c).icon} onClick={() => go("explore", { cat: c })}>{catById(c).label}</Chip>)}</div>
-          {deals.length > 0 && <section className="sec">
+          {!showRayons && <div className="chips-wrap">{m.categories.map((c) => <Chip key={c} icon={catById(c).icon} onClick={() => go("explore", { cat: c })}>{catById(c).label}</Chip>)}</div>}
+          {only("promos") && deals.length > 0 && <section className="sec">
             <SectionHead title={m.categories.includes("restauration" as any) ? "À la carte en ce moment" : "Promos et offres en cours"} sub="Offres limitées, aux dates indiquées" />
             <div className="grid">{deals.map((p) => <ProductCard key={p.id} p={p} />)}</div>
           </section>}
-          {(latest.length > 0 || !deals.length) && <section className="sec">
-            <SectionHead title="Derniers arrivages" sub={`${latest.length} publication${latest.length > 1 ? "s" : ""} en ligne`} />
+          {rayon !== "promos" && rayon !== "soon" && (latest.length > 0 || !deals.length) && <section className="sec">
+            <SectionHead title={rayon.startsWith("c:") ? catById(rayon.slice(2) as any).label : "Derniers arrivages"} sub={`${latest.length} publication${latest.length > 1 ? "s" : ""} en ligne`} />
             {latest.length ? <div className="grid">{latest.map((p) => <ProductCard key={p.id} p={p} />)}</div> : <Empty icon={Package} title="Aucun arrivage publié" />}
           </section>}
-          {(next.length > 0 || !deals.length) && <section className="sec">
+          {rayon !== "promos" && (rayon === "soon" || next.length > 0 || (!deals.length && rayon === "all")) && <section className="sec">
             <SectionHead title="Prochains arrivages" />
             {next.length ? <div className="grid">{next.map((p) => <ProductCard key={p.id} p={p} />)}</div> : <Empty icon={Calendar} title="Aucun arrivage annoncé" body="Suivez ce commerce pour être prévenu." />}
           </section>}

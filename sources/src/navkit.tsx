@@ -1,6 +1,6 @@
 // Aides de navigation : menu « Plus » de la barre du bas (mobile, iPad en portrait) et recherche globale de l'espace Admin.
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Search, X, Crown, Store, User, Package } from "lucide-react";
+import { Search, X, Crown, Store, User, Package, BellRing, Heart, ShoppingBag, ChevronRight, LogIn, HelpCircle, Plus } from "lucide-react";
 import { useStore } from "./store";
 import { useNav } from "./nav";
 import { norm, fmtXPF } from "./data";
@@ -94,6 +94,46 @@ export function AdminSearch() {
             ))}
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+// Page « Moi » (onglet de la barre du bas côté client) : tout ce qui appartient au visiteur, au même endroit
+export function MePage() {
+  const { s, openAuth } = useStore();
+  const { go } = useNav();
+  const alertNew = s.notifications.filter((n) => !n.read && n.kind === "alert").length;
+  const alertsOn = s.alerts.filter((a) => a.active).length;
+  const plural = (n: number, w: string) => `${n} ${w}${n > 1 ? "s" : ""}`;
+  const hasRes = !!s.me && s.reservations.some((r) => r.buyerId === s.me!.id);
+  const rows = [
+    { i: BellRing, tint: "var(--me-t1)", l: "Mes alertes", sub: alertNew ? `${plural(alertNew, "produit")} trouvé${alertNew > 1 ? "s" : ""} pour vous` : alertsOn ? (alertsOn > 1 ? `${alertsOn} alertes actives` : "1 alerte active") : "Être prévenu quand un produit arrive", badge: alertNew, run: () => go("alerts", {}) },
+    { i: Heart, tint: "var(--me-t2)", l: "Mes favoris", sub: s.favorites.length ? plural(s.favorites.length, "produit") : "Aucun pour l'instant", run: () => go("favorites", {}) },
+    { i: Store, tint: "var(--me-t3)", l: "Commerces suivis", sub: s.follows.length ? plural(s.follows.length, "commerce") : "Suivez un commerce pour voir ses arrivages", run: () => go("favorites", { tab: "merchants" }) },
+    ...(hasRes ? [{ i: ShoppingBag, tint: "var(--me-t4)", l: "Mes anciennes réservations", sub: "Consulter l'historique", run: () => go("orders", {}) }] : []),
+    ...(s.me ? [{ i: User, tint: "var(--soft)", l: "Mon compte", sub: "Commune, mot de passe, mes données", run: () => go("profile", {}) }] : []),
+  ];
+  return (
+    <div className="page me-page">
+      <h1 className="page-title">Moi</h1>
+      {s.me ? (
+        <div className="me-id"><span className="me-av">{(s.me.displayName || "?").slice(0, 1).toUpperCase()}</span><div><strong>{s.me.displayName}</strong><span className="muted small">{s.profile.commune || "Toute la Calédonie"}</span></div></div>
+      ) : (
+        <button className="me-id me-login" onClick={() => openAuth()}><span className="me-av"><LogIn size={18} /></span><div><strong>Se connecter ou créer un compte</strong><span className="muted small">Gratuit. Vos alertes et favoris vous suivent sur tous vos appareils.</span></div><ChevronRight size={18} /></button>
+      )}
+      <div className="me-list">
+        {rows.map((r) => (
+          <button key={r.l} className="me-row" onClick={r.run}>
+            <span className="me-ico" style={{ background: r.tint }}><r.i size={19} /></span>
+            <span className="me-txt"><strong>{r.l}</strong><span className="muted small">{r.sub}</span></span>
+            {r.badge ? <span className="me-badge">{r.badge}</span> : <ChevronRight size={18} className="muted" />}
+          </button>
+        ))}
+      </div>
+      <div className="me-links">
+        <button className="link" onClick={() => go("how", {})}><HelpCircle size={15} /> Comment ça marche ?</button>
+        <button className="link" onClick={() => go("signup", {})}><Plus size={15} /> Inscrire mon commerce</button>
       </div>
     </div>
   );

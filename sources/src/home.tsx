@@ -9,7 +9,7 @@ import { useStore } from "./store";
 import { useNav } from "./nav";
 import { useCatalog, ProductCard, MerchantCard, popularity, PriceTag } from "./consumer";
 import { dealState, dealBadge, dealWhen, isRestoProduct } from "./deals";
-import { Scope, SCOPES, suggest, brandsOf, inStock, recentSearches, pushRecent, clearRecent, highlight } from "./finder";
+import { Scope, SCOPES, suggest, brandsOf, inStock, recentSearches, pushRecent, clearRecent, highlight, recentViews, clearViews } from "./finder";
 import { useDemo } from "./demo";
 import { HowBand } from "./how";
 import { useHScroll, HArrows } from "./hscroll";
@@ -197,6 +197,8 @@ export function Home() {
     return Array.from(new Set([...recentSearches(), ...top, ...fromCat, ...IDEAS].map((x) => x.trim()).filter(Boolean))).slice(0, 8);
   }, [s.searchLog, brands]);
   const emptyCatalog = cat.length === 0;
+  const [viewIds, setViewIds] = useState<string[]>(recentViews);
+  const viewed = useMemo(() => viewIds.map((id) => cat.find((p) => p.id === id)).filter(Boolean).slice(0, 10) as Product[], [viewIds, cat]);
   // Mises en avant : publications sponsorisées (forfait Premium) et « À la une » (admin), ordre mélangé à chaque visite
   const [seed] = useState(() => Math.random());
   const spotlight = useMemo(() => {
@@ -260,6 +262,13 @@ export function Home() {
             <li><b>2</b><span><strong>Comparez</strong> prix, stock et commune en un coup d'œil.</span></li>
             <li><b>3</b><span><strong>Achetez</strong> en ligne chez le commerçant, ou foncez en magasin.</span></li>
           </ol>
+        </section>
+      )}
+
+      {viewed.length > 0 && (
+        <section className="sec">
+          <SectionHead title="Vus récemment" sub="Les derniers produits que vous avez regardés" action={<button className="link" onClick={() => { clearViews(); setViewIds([]); }}>Effacer</button>} />
+          <Rail>{viewed.map((p) => <ProductCard key={p.id} p={p} />)}</Rail>
         </section>
       )}
 
