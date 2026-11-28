@@ -4,7 +4,7 @@
 import React from "react";
 import { Mail, PauseCircle, PlayCircle, ShieldCheck, Moon } from "lucide-react";
 import { useStore } from "./store";
-import { Btn, cx } from "./ui";
+import { Btn, cx, Wordmark } from "./ui";
 
 export const isTestSite = () => { try { return /\/demo-x7q4(\/|$)/.test(location.pathname); } catch { return false; } };
 
@@ -22,7 +22,7 @@ export function StandbyPage() {
     <div className="standby">
       <main>
         <div className="standby-badge"><span className="standby-dot" aria-hidden />Bientôt de retour</div>
-        <h1 className="standby-logo" aria-label="arrivage.">arrivage<span>.</span></h1>
+        <h1 className="standby-logo"><Wordmark size="clamp(56px, 14vw, 128px)" /></h1>
         <p className="standby-slogan">Tout ce qui débarque, au même endroit.</p>
         <p className="standby-text">ARRIVAGE fait une courte pause pour préparer la suite. Le site revient très bientôt. Une question, ou envie de référencer votre commerce&nbsp;? Écrivez-nous.</p>
         <a className="standby-cta" href="mailto:contact@arrivagenc.com"><Mail size={18} /> contact@arrivagenc.com</a>
@@ -32,7 +32,8 @@ export function StandbyPage() {
   );
 }
 
-export const StandbySplash = () => <div className="standby" aria-busy="true" />;
+// Même écran que celui affiché avant le démarrage du site (voir build.sh) : pas de clignotement au lancement de l'appli installée
+export const StandbySplash = () => <div className="boot" aria-busy="true"><Wordmark className="boot-logo" size="clamp(52px, 17vw, 96px)" /></div>;
 
 // Bandeau rappel pour les admins pendant le stand-by
 export function StandbyAdminBar({ go }: { go?: () => void }) {

@@ -1,0 +1,72 @@
+{
+  "id": "./",
+  "name": "ARRIVAGE",
+  "short_name": "ARRIVAGE",
+  "description": "Les arrivages des commerces de Nouvelle-Calédonie : qui a quoi, où et à quel prix, alertes produits et promos.",
+  "lang": "fr",
+  "dir": "ltr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0C253F",
+  "theme_color": "#0C253F",
+  "categories": [
+    "shopping",
+    "lifestyle"
+  ],
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Rechercher un produit",
+      "short_name": "Rechercher",
+      "url": "./#/recherche",
+      "icons": [
+        {
+          "src": "/icons/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Mes alertes",
+      "short_name": "Alertes",
+      "url": "./#/alertes",
+      "icons": [
+        {
+          "src": "/icons/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Mes favoris",
+      "short_name": "Favoris",
+      "url": "./#/favoris",
+      "icons": [
+        {
+          "src": "/icons/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    }
+  ]
+}

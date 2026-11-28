@@ -9,6 +9,8 @@ Site : https://arrivagenc.com (GitHub Pages, branche `main`, racine).
 Remettre en maintenance à la main (secours) : `cp maintenance.html index.html && git commit -am "Maintenance" && git push`.
 Mettre à jour le site officiel après un build : `bash sources/build.sh "$PWD/demo-x7q4/index.html" && grep -v 'name="robots"' demo-x7q4/index.html > index.html`.
 
+**Appli installable et nouvelle identité sur le site officiel depuis le 28/11/2026** (PR 15).
+
 - `demo-x7q4/index.html` : le prototype interactif complet (données fictives, paiement simulé), mis de côté et non référencé (noindex).
 - `sources/` : le code source du prototype (React + TypeScript, assemblé avec esbuild via `build.sh`).
 - `CNAME` : domaine personnalisé, à ne pas supprimer.
@@ -42,6 +44,15 @@ git mv -f demo-x7q4/index.html index.html && git commit -m "Remise en ligne du p
 - **Achat en ligne, payé directement au commerçant** : le commerçant colle un lien de paiement (banque, Stripe, PayPal, sa boutique en ligne) dans Ma fiche, ou un lien différent par produit dans le formulaire de publication. Un bouton « Acheter » apparaît alors sur ses produits. ARRIVAGE ne touche pas l'argent et ne prend pas de commission : le modèle économique reste les abonnements. Liens `https://` uniquement.
 - **Comment ça marche** (`sources/src/how.tsx`) : bandeau refermable sur l'accueil (3 étapes, créer un compte, je suis commerçant) et page `#/comment-ca-marche` avec onglets client / commerçant et questions fréquentes. Lien aussi en pied de page.
 
+## Application installable (écran d'accueil du téléphone)
+
+En attendant l'appli officielle, le site s'installe comme une appli (PWA) :
+- iPhone / iPad : Safari > Partager > « Sur l'écran d'accueil ». Android : Chrome > menu ⋮ > « Installer l'application » (ou le bouton « Installer » du site).
+- `manifest.webmanifest` (racine) et `demo-x7q4/manifest.webmanifest` (nommé « ARRIVAGE (test) ») : nom, couleurs, icônes, raccourcis.
+- `icons/` : icônes et écrans de lancement iPhone, générés par `node sources/pwa/make-icons.js` (à relancer seulement si le logo change).
+- `sw.js` (copié par `build.sh` à côté de la page) : ne met rien en cache, affiche seulement une page « Pas de connexion » hors ligne. Après une mise à jour du site officiel, copier aussi `demo-x7q4/sw.js` vers `sw.js` s'il a changé.
+- `sources/src/install.tsx` : petite carte « ARRIVAGE en appli » (mobile, après 30 s ou dès la 2e visite, masquée 30 jours si on la ferme), lien « Installer l'appli sur mon téléphone » en pied de page, fenêtre d'aide iPhone / Android, question dans la FAQ.
+
 ## Scripts Supabase (SQL Editor > New query > coller > Run)
 
 Ordre à respecter. Chaque script peut être relancé sans risque. **Après toute exécution de `schema.sql`, relancer les suivants.**
@@ -60,3 +71,8 @@ Ordre à respecter. Chaque script peut être relancé sans risque. **Après tout
 - **Rafraîchissement** : un compte connecté ne recharge que les lignes modifiées toutes les 90 s, et tout le catalogue toutes les 15 min.
 - **Outil Excel** : `assets/xlsx-0.18.5.min.js` n'est chargé que sur la page Import (il n'est plus dans la page du site).
 - **Comptes employés** : Pro > Équipe (forfait Premium) > Inviter un membre. On envoie le lien et le code à l'employé, qui se connecte avec son propre compte sur `#/rejoindre-equipe`.
+
+## Identité visuelle (28/11/2026)
+
+Couleurs : marine `#0C253F`, crème `#FCF0DC`, orange `#FF7A1F`. Titres en Inter Tight, texte en Inter. Le logo « arrivage. » est vectorisé dans `sources/src/brand.ts` (aucune police à charger) ; les icônes et écrans de lancement de l'appli se régénèrent avec `node sources/pwa/make-icons.js`. Texte orange sur fond clair : utiliser `var(--accent-ink)` (orange foncé lisible), les boutons orange ont un texte marine. L'ancien thème vert reste disponible dans Personnalisation (« Vert d'origine »).
+
