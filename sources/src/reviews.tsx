@@ -3,6 +3,7 @@ import { Star, MessageSquare, BadgeCheck, Check, EyeOff, Eye, Trash2, Reply, Shi
 import { fmtRel } from "./data";
 import { useStore, newId } from "./store";
 import { useNav } from "./nav";
+import { FilterTag } from "./navkit";
 import { Btn, Modal, Empty, Segmented, cx, Field, MerchantLogo } from "./ui";
 import { isDemoId } from "./demo";
 import type { Reservation } from "./reservations";
@@ -173,12 +174,14 @@ export function MerchantReviews({ merchantId }: { merchantId: string }) {
 }
 
 // ---------- Admin : modération ----------
-export function AdminReviews() {
+export function AdminReviews({ params }: { params?: any } = {}) {
   const { s, mutate, toast, log } = useStore();
   const { go } = useNav();
-  const [tab, setTab] = useState("pending");
-  const counts = { pending: s.reviews.filter((r) => r.status === "pending").length, published: s.reviews.filter((r) => r.status === "published").length, hidden: s.reviews.filter((r) => r.status === "hidden").length };
-  const list = s.reviews.filter((r) => r.status === tab).sort((a, b) => b.at.localeCompare(a.at));
+  const fm = params?.m ? s.merchants.find((x) => x.id === params.m) : undefined;
+  const pool = fm ? s.reviews.filter((r) => r.merchantId === fm.id) : s.reviews;
+  const [tab, setTab] = useState(fm && !pool.some((r) => r.status === "pending") ? "published" : "pending");
+  const counts = { pending: pool.filter((r) => r.status === "pending").length, published: pool.filter((r) => r.status === "published").length, hidden: pool.filter((r) => r.status === "hidden").length };
+  const list = pool.filter((r) => r.status === tab).sort((a, b) => b.at.localeCompare(a.at));
   const set = (id: string, st: ReviewStatus | "delete", msg: string) => { mutate((d) => { if (st === "delete") d.reviews = d.reviews.filter((x) => x.id !== id); else { const x = d.reviews.find((y) => y.id === id)!; x.status = st; x.modNote = undefined; } log(d, msg, "admin"); }); toast(msg); };
   const suspicious = (r: Review) => /www\.|http|@|\d{2}[ .]?\d{2}[ .]?\d{2}/i.test(r.text) || /!!!|arnaque/i.test(r.text);
   return (
@@ -190,6 +193,7 @@ export function AdminReviews() {
         <label className="switch-row"><input type="checkbox" checked={!!s.settings.moderateReviews} onChange={() => { mutate((d) => { d.settings.moderateReviews = !d.settings.moderateReviews; }); toast(s.settings.moderateReviews ? "Avis publiés automatiquement" : "Modération des avis activée", "info"); }} aria-label="Modérer les avis avant publication" /><span className="switch" /></label>
       </div>
       <Segmented value={tab} onChange={setTab} options={[{ v: "pending", l: `À valider (${counts.pending})` }, { v: "published", l: `Publiés (${counts.published})` }, { v: "hidden", l: `Masqués (${counts.hidden})` }]} />
+      {fm && <div style={{ marginTop: 12 }}><FilterTag label={`Commerce : ${fm.name}`} onClear={() => go("reviews", {})} /></div>}
       {!list.length ? <Empty icon={MessageSquare} title={tab === "pending" ? "Aucun avis à valider" : "Aucun avis"} /> : (
         <div className="reviews" style={{ marginTop: 14 }}>
           {list.map((r) => {

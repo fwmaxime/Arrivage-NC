@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Ban, UserX, Flag, Check, EyeOff, Eye, Phone, Mail, Copy, Send, Pencil, MessageSquare, PhoneCall, RotateCcw, Info, Clock, ChevronRight, Store, ShieldCheck, Undo2 } from "lucide-react";
 import { useStore, Report, ReportEvent, ReportStatus } from "./store";
 import { useNav } from "./nav";
+import { FilterTag } from "./navkit";
 import { STATUSES, fmtXPF, fmtRel, catById, Product } from "./data";
 import { Btn, Segmented, StatusPill, ProductVisual, MerchantLogo, Empty, Modal, Field, Chip, cx } from "./ui";
 import { StatePill, useMe } from "./merchant";
@@ -54,13 +55,16 @@ export function Timeline({ history }: { history: ReportEvent[] }) {
 }
 
 // ---------- Admin : liste + fiche de traitement ----------
-export function AdminReports() {
+export function AdminReports({ params }: { params?: any } = {}) {
   const { s } = useStore();
-  const [tab, setTab] = useState("todo");
+  const { go } = useNav();
+  const fm = params?.m ? s.merchants.find((x) => x.id === params.m) : undefined;
+  const ofM = (r: Report) => !fm || s.products.find((p) => p.id === r.productId)?.merchantId === fm.id;
+  const [tab, setTab] = useState(fm ? "all" : "todo");
   const [openId, setOpenId] = useState<string | null>(null);
   const todo = (r: Report) => r.status === "open" || r.status === "fixed";
-  const list = s.reports.filter((r) => tab === "all" || (tab === "todo" ? todo(r) : tab === "waiting" ? r.status === "waiting" : r.status === "resolved" || r.status === "removed"));
-  const count = (f: (r: Report) => boolean) => s.reports.filter(f).length;
+  const list = s.reports.filter(ofM).filter((r) => tab === "all" || (tab === "todo" ? todo(r) : tab === "waiting" ? r.status === "waiting" : r.status === "resolved" || r.status === "removed"));
+  const count = (f: (r: Report) => boolean) => s.reports.filter(ofM).filter(f).length;
   return (
     <div className="page">
       <div className="page-head"><div><h1 className="page-title">Signalements et modération</h1><p className="muted">Ouvrez un signalement pour prévenir la boutique, noter un appel, corriger la publication vous-même ou la masquer.</p></div></div>
@@ -68,6 +72,7 @@ export function AdminReports() {
         { v: "todo", l: `À traiter (${count(todo)})` }, { v: "waiting", l: `En attente boutique (${count((r) => r.status === "waiting")})` },
         { v: "closed", l: `Clos (${count((r) => r.status === "resolved" || r.status === "removed")})` }, { v: "all", l: "Tous" },
       ]} />
+      {fm && <div style={{ marginTop: 12 }}><FilterTag label={`Commerce : ${fm.name}`} onClear={() => go("reports", {})} /></div>}
       <div className="posts" style={{ marginTop: 16 }}>
         {!list.length && <Empty icon={Flag} title="Rien ici" body="Signalez une publication depuis une fiche produit (espace consommateur) pour tester." />}
         {list.map((r) => {
