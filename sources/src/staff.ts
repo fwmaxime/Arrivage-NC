@@ -33,7 +33,7 @@ export const roleById = (r: Role) => ROLES.find((x) => x.id === r)!;
 export const can = (r: Role, p: Perm) => roleById(r).perms.includes(p);
 // Page de l'espace commerçant → permission nécessaire
 export const ROUTE_PERM: Record<string, Perm | null> = {
-  dashboard: null, theme: null, posts: "posts", publish: "publish", import: "publish", demand: "stats", reservations: "reservations",
+  dashboard: null, theme: null, posts: "posts", publish: "publish", import: "publish", demand: "stats", wanted: null, reservations: "reservations",
   reviews: "reviews", moderation: "moderation", plans: "billing", shop: "shop", team: "team",
 };
 export const MAX_STAFF = 10;

@@ -10,6 +10,7 @@ import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianG
 import { CATEGORIES, COMMUNES, STATUSES, PLANS, DemandItem, catById, planById, fmtXPF, fmtNum, fmtRel, fmtDate, norm, Product, Merchant, Status, PlanId, safeUrl } from "./data";
 import { useStore, alertMatches, newId, tokens, productHay, myMerchants, myStaffRow } from "./store";
 import { useNav } from "./nav";
+import { WantedDashCard } from "./wanted";
 import { Btn, IconBtn, StatusPill, Chip, ProductVisual, MerchantLogo, Modal, Empty, SectionHead, Segmented, Field, Stat, DemoTag, cx, Confirm } from "./ui";
 
 export const useMe = () => {
@@ -83,6 +84,7 @@ export function MerchantDashboard() {
       {s.reports.some((r) => r.merchantUnread && mine.some((p) => p.id === r.productId)) && (
         <button className="modbanner" onClick={() => go("moderation")}><Info size={16} /> <span>Vous avez un nouveau message de la modération concernant une publication signalée.</span><strong>Voir</strong></button>
       )}
+      <WantedDashCard me={me} />
       <div className="stats">
         <Stat icon={Package} label="Publications actives" value={fmtNum(active.length)} sub={`${mine.filter((p) => p.state === "draft").length} brouillon(s) · ${mine.filter((p) => p.state === "scheduled").length} programmée(s)`} />
         <Stat icon={Eye} label="Vues" value={plan.can.stats === "none" ? "—" : fmtNum(views)} sub={plan.can.stats === "none" ? "Inclus dès Starter" : "Cumul des fiches produits"} />
@@ -292,7 +294,8 @@ export function PublishPage({ params }: any) {
     const renew = params?.renew;
     return { on: true, kind: p.deal.kind, occasion: p.deal.occasion || "", was: p.deal.was ? String(p.deal.was) : "", discount: p.deal.discount || "", start: renew ? dealBlank.start : toLocalInput(new Date(p.deal.startAt)), end: renew ? dealBlank.end : toLocalInput(new Date(p.deal.endAt)) };
   };
-  const blank = { name: "", category: (resto && params?.deal ? RESTO_CAT : me.categories[0]) as string, brand: "", description: "", price: "", qty: "", images: [] as string[], arrived: todayStr(), status: "today" as Status, store: me.stores[0], tags: "", schedule: "", tryOn: false, buyUrl: "", deal: dealBlank };
+  const pre = params?.prefill || {};
+  const blank = { name: String(pre.name || "").slice(0, 120), category: (CATEGORIES.some((c) => c.id === pre.category) ? pre.category : resto && params?.deal ? RESTO_CAT : me.categories[0]) as string, brand: String(pre.brand || ""), description: "", price: "", qty: "", images: [] as string[], arrived: todayStr(), status: "today" as Status, store: me.stores[0], tags: "", schedule: "", tryOn: false, buyUrl: "", deal: dealBlank };
   const [f, setF] = useState(() => editing ? {
     name: editing.name, category: editing.category, brand: editing.brand === "Sans marque" ? "" : editing.brand, description: editing.description, price: editing.price && !(params?.deal && !editing.deal) ? String(editing.price) : "", qty: editing.qty != null ? String(editing.qty) : "",
     images: editing.images, arrived: editing.arrivedAt.slice(0, 10), status: editing.status, store: editing.store || me.stores[0], tags: editing.tags.join(", "), schedule: editing.scheduledAt ? editing.scheduledAt.slice(0, 16) : "", tryOn: !!editing.tryOn, buyUrl: editing.buyUrl || "",

@@ -9,6 +9,7 @@ import { matchScore, correct, termScore, indexOf, words as qWords } from "./sear
 import { useNav } from "./nav";
 import { RatingBadge, ReviewsBlock } from "./reviews";
 import { AccountSection } from "./auth";
+import { WantedButton, WantedPrompt, MyWanted } from "./wanted";
 import { dealState, dealVisible, dealBadge, dealTitle, dealKindShort, dealWhen, dealPeriod, isRestoProduct, pctOff } from "./deals";
 import { Btn, IconBtn, StatusPill, Chip, ProductVisual, MerchantLogo, MerchantCover, Modal, Empty, SectionHead, Segmented, Field, DemoTag, cx } from "./ui";
 import { shareUrl } from "./url";
@@ -336,10 +337,10 @@ export function Explore({ params }: any) {
           </div>
           {fix && results.length > 0 && <div className="search-fix"><Sparkles size={16} /><span>Résultats pour « <b>{fix}</b> ». Vous avez tapé « {q.trim()} ».</span></div>}
           {results.length ? (
-            <div className="grid grid-explore">{results.map((p) => <ProductCard key={p.id} p={p} />)}</div>
+            <><div className="grid grid-explore">{results.map((p) => <ProductCard key={p.id} p={p} />)}</div>{hasQ && <WantedPrompt q={q} category={f.cats[0] || ""} />}</>
           ) : (
-            <Empty icon={Search} title="Aucun produit ne correspond" body={q ? `Personne ne propose « ${q} » avec ces critères pour le moment.` : "Essayez d'élargir vos filtres."}
-              action={<div className="row-center"><Btn variant="outline" icon={RotateCcw} onClick={reset}>Réinitialiser</Btn>{q && <Btn icon={BellRing} onClick={() => go("alerts", { create: { query: q, category: f.cats[0] || "" } })}>Créer une alerte « {q} »</Btn>}</div>} />
+            <Empty icon={Search} title="Aucun produit ne correspond" body={q ? `Personne ne propose « ${q} » avec ces critères pour le moment. Signalez-le : les commerçants verront qu'il est recherché.` : "Essayez d'élargir vos filtres."}
+              action={<div className="row-center">{q ? <><WantedButton query={q} category={f.cats[0] || ""} /><Btn variant="outline" icon={BellRing} onClick={() => go("alerts", { create: { query: q, category: f.cats[0] || "" } })}>Créer une alerte</Btn></> : <Btn variant="outline" icon={RotateCcw} onClick={reset}>Réinitialiser</Btn>}</div>} />
           )}
         </div>
       </div>
@@ -365,7 +366,7 @@ export function Explore({ params }: any) {
               </button>
             );
           })}</div></>
-        : <Empty icon={Tag} title="Aucune marque ne correspond" body={`Aucun commerce ne propose la marque « ${q.trim()} » pour le moment.`} action={<Btn icon={BellRing} onClick={() => go("alerts", { create: { query: q } })}>Créer une alerte « {q.trim()} »</Btn>} />)}
+        : <Empty icon={Tag} title="Aucune marque ne correspond" body={`Aucun commerce ne propose la marque « ${q.trim()} » pour le moment.`} action={<div className="row-center"><WantedButton query={q} /><Btn variant="outline" icon={BellRing} onClick={() => go("alerts", { create: { query: q } })}>Créer une alerte</Btn></div>} />)}
       <Modal open={sheet} onClose={() => setSheet(false)} title="Filtres" side>
         {panel}
         <div className="sheet-foot"><Btn className="w-full" onClick={() => setSheet(false)}>Afficher {results.length} produit{results.length > 1 ? "s" : ""}</Btn></div>
@@ -687,6 +688,8 @@ export function AlertsPage({ params }: any) {
         </div>
       )}
 
+
+      <MyWanted />
 
       <Modal open={!!editing} onClose={() => setEditing(null)} title={editing?.id ? "Modifier l'alerte" : "Nouvelle alerte"}>
         {editing && <AlertForm initial={editing} onSave={save} onCancel={() => setEditing(null)} />}
