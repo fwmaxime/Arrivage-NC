@@ -8,8 +8,8 @@
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#203C31",
-  "theme_color": "#203C31",
+  "background_color": "#0C253F",
+  "theme_color": "#0C253F",
   "categories": [
     "shopping",
     "lifestyle"

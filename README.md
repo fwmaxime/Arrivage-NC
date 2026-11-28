@@ -69,3 +69,8 @@ Ordre à respecter. Chaque script peut être relancé sans risque. **Après tout
 - **Rafraîchissement** : un compte connecté ne recharge que les lignes modifiées toutes les 90 s, et tout le catalogue toutes les 15 min.
 - **Outil Excel** : `assets/xlsx-0.18.5.min.js` n'est chargé que sur la page Import (il n'est plus dans la page du site).
 - **Comptes employés** : Pro > Équipe (forfait Premium) > Inviter un membre. On envoie le lien et le code à l'employé, qui se connecte avec son propre compte sur `#/rejoindre-equipe`.
+
+## Identité visuelle (28/11/2026)
+
+Couleurs : marine `#0C253F`, crème `#FCF0DC`, orange `#FF7A1F`. Titres en Inter Tight, texte en Inter. Le logo « arrivage. » est vectorisé dans `sources/src/brand.ts` (aucune police à charger) ; les icônes et écrans de lancement de l'appli se régénèrent avec `node sources/pwa/make-icons.js`. Texte orange sur fond clair : utiliser `var(--accent-ink)` (orange foncé lisible), les boutons orange ont un texte marine. L'ancien thème vert reste disponible dans Personnalisation (« Vert d'origine »).
+

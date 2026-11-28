@@ -11,18 +11,19 @@ export interface Theme { preset: string; mode: ThemeMode; brand: string; accent:
 interface ThemeStore { linked: boolean; themes: Record<Mode, Theme> }
 
 export const PRESETS: { id: string; name: string; desc: string; brand: string; accent: string; paper: string; mode?: ThemeMode; font?: FontId }[] = [
-  { id: "lagon", name: "ARRIVAGE", desc: "Vert profond et orange, le thème d'origine", brand: "#203C31", accent: "#E77938", paper: "#F5F5F1" },
+  { id: "lagon", name: "ARRIVAGE", desc: "Bleu marine, orange et crème, les couleurs du logo", brand: "#0C253F", accent: "#FF7A1F", paper: "#FCF0DC" },
+  { id: "vert", name: "Vert d'origine", desc: "Vert profond et orange, l'ancien thème", brand: "#203C31", accent: "#E77938", paper: "#F5F5F1" },
   { id: "corail", name: "Corail", desc: "Bleu marine et corail", brand: "#1F2F4A", accent: "#F06B5B", paper: "#F6F4F0" },
   { id: "lagon-bleu", name: "Lagon bleu", desc: "Bleu canard et jaune soleil", brand: "#0F5C6E", accent: "#F2B53A", paper: "#F1F6F5" },
   { id: "niaouli", name: "Niaouli", desc: "Olive et moutarde, ton naturel", brand: "#4A5A2C", accent: "#D9A629", paper: "#F4F2E9" },
   { id: "flamboyant", name: "Flamboyant", desc: "Bordeaux et rouge orangé", brand: "#6B1E2E", accent: "#E4572E", paper: "#F8F3EF" },
   { id: "hibiscus", name: "Hibiscus", desc: "Prune et mandarine", brand: "#5E1F54", accent: "#F28C28", paper: "#FBF5F7" },
   { id: "graphite", name: "Graphite", desc: "Sobre, gris anthracite et bleu", brand: "#26282B", accent: "#3D7BF2", paper: "#F4F4F5", font: "moderne" },
-  { id: "nuit", name: "Nuit", desc: "Mode sombre, vert et orange", brand: "#203C31", accent: "#E77938", paper: "#F5F5F1", mode: "dark" },
+  { id: "nuit", name: "Nuit", desc: "Mode sombre, marine et orange", brand: "#0C253F", accent: "#FF7A1F", paper: "#FCF0DC", mode: "dark" },
 ];
 
 export const FONTS: { id: FontId; name: string; display: string; body: string }[] = [
-  { id: "arrivage", name: "ARRIVAGE", display: '"Bricolage Grotesque", "Inter", ui-sans-serif, system-ui, sans-serif', body: '"Inter", ui-sans-serif, system-ui, sans-serif' },
+  { id: "arrivage", name: "ARRIVAGE", display: '"Inter Tight", "Inter", ui-sans-serif, system-ui, sans-serif', body: '"Inter", ui-sans-serif, system-ui, sans-serif' },
   { id: "moderne", name: "Moderne", display: '"Manrope", ui-sans-serif, system-ui, sans-serif', body: '"Manrope", ui-sans-serif, system-ui, sans-serif' },
   { id: "editorial", name: "Éditorial", display: '"Fraunces", Georgia, serif', body: '"Inter", ui-sans-serif, system-ui, sans-serif' },
   { id: "doux", name: "Doux", display: '"Nunito", ui-rounded, ui-sans-serif, system-ui, sans-serif', body: '"Nunito", ui-rounded, ui-sans-serif, system-ui, sans-serif' },
@@ -30,7 +31,7 @@ export const FONTS: { id: FontId; name: string; display: string; body: string }[
 ];
 const RADII: Record<RadiusId, number> = { net: 0.35, standard: 1, arrondi: 1.45 };
 
-const DEFAULT: Theme = { preset: "lagon", mode: "auto", brand: "#203C31", accent: "#E77938", paper: "#F5F5F1", font: "arrivage", radius: "standard" };
+const DEFAULT: Theme = { preset: "lagon", mode: "auto", brand: "#0C253F", accent: "#FF7A1F", paper: "#FCF0DC", font: "arrivage", radius: "standard" };
 const KEY = "arrivage-v1-theme";
 const SPACES: Mode[] = ["consumer", "merchant", "admin"];
 export const SPACE_LABEL: Record<Mode, string> = { consumer: "Consommateur", merchant: "Commerçant", admin: "Admin et finances" };
@@ -45,6 +46,9 @@ function loadThemes(): ThemeStore {
   return base;
 }
 function sanitize(t: Theme): Theme {
+  // Nouvelle identité (28/11/2026) : les thèmes ARRIVAGE et Nuit enregistrés passent aux couleurs du logo
+  const pr = PRESETS.find((p) => p.id === t.preset);
+  if (pr && (t.preset === "lagon" || t.preset === "nuit")) Object.assign(t, { brand: pr.brand, accent: pr.accent, paper: pr.paper });
   for (const k of ["brand", "accent", "paper"] as const) if (!isHex(t[k])) t[k] = DEFAULT[k];
   if (!["light", "dark", "auto"].includes(t.mode)) t.mode = "auto";
   if (!FONTS.find((f) => f.id === t.font)) t.font = "arrivage";
@@ -71,7 +75,9 @@ function fromHsl(hu: number, s: number, l: number) {
   return hex([f(0) * 255, f(8) * 255, f(4) * 255]);
 }
 const withL = (h: string, l: number, sMin = 0) => { const [hu, s] = toHsl(h); return fromHsl(hu, Math.max(s, sMin), l); };
-const LIGHT_INK = "#F5F5F1", DARK_INK = "#202720";
+const LIGHT_INK = "#FCF0DC", DARK_INK = "#0C253F";
+/** Assombrit une couleur jusqu'à un contraste de 4.5:1 sur le fond (texte orange lisible sur fond clair) */
+const textShade = (c: string, bg: string) => { for (let t = 0.05; t < 1; t += 0.05) { const x = mix(c, "#000000", t); if (contrast(x, bg) >= 4.6) return x; } return DARK_INK; };
 /** Texte lisible sur un fond donné (préférence au clair tant que le contraste reste correct) */
 export const onColor = (bg: string, prefLight = 2.6) => (contrast(bg, LIGHT_INK) >= prefLight ? LIGHT_INK : DARK_INK);
 
@@ -86,7 +92,7 @@ export function computeVars(t: Theme, dark: boolean): Record<string, string> {
     const c1 = contrast(B, "#FFFFFF") < 2.2 ? mix(B, "#000000", 0.45) : B;
     Object.assign(v, {
       "--paper": P, "--bg": P, "--surface-2": mix(P, "#FFFFFF", 0.55), "--soft": mix(P, DARK_INK, 0.05), "--line": mix(P, DARK_INK, 0.08), "--line-2": mix(P, DARK_INK, 0.15),
-      "--primary": B, "--primary-fg": greenFg, "--accent": A, "--accent-fg": onColor(A) === LIGHT_INK ? "#FFFFFF" : DARK_INK,
+      "--primary": B, "--primary-fg": greenFg, "--accent": A, "--accent-ink": contrast(A, P) >= 4.5 ? A : textShade(A, P), "--accent-fg": onColor(A) === LIGHT_INK ? "#FFFFFF" : DARK_INK,
       "--side": B, "--side-fg": mix(greenFg, B, 0.14), "--side-strong": greenFg === LIGHT_INK ? "#FFFFFF" : DARK_INK, "--c1": c1,
     });
     const ink = mix(c1, P, 0);
@@ -96,10 +102,10 @@ export function computeVars(t: Theme, dark: boolean): Record<string, string> {
     const c1 = withL(B, 0.72, 0.3);
     const acc = toHsl(A)[2] < 0.6 ? withL(A, 0.62) : A;
     Object.assign(v, {
-      "--bg": base("#121614", 0.1), "--surface": base("#191E1B", 0.12), "--surface-2": base("#1D231F", 0.13), "--soft": base("#232A25", 0.15), "--line": base("#2A322D", 0.16), "--line-2": base("#36403A", 0.18),
-      "--primary": mix("#ECEFE8", c1, 0.12), "--primary-fg": base("#111512", 0.25), "--accent": acc, "--accent-fg": "#1A120C",
-      "--side": base("#0E1210", 0.22), "--side-fg": "#CBD3CD", "--side-strong": "#FFFFFF", "--c1": c1,
-      "--ch-a": mix(c1, "#1A1F1C", 0.22), "--ch-b": mix(c1, "#1A1F1C", 0.4), "--ch-c": mix(c1, "#1A1F1C", 0.58), "--ch-acc": acc, "--ch-acc2": mix(acc, "#1A1F1C", 0.4), "--hero-ring": mix(acc, B, 0.6),
+      "--bg": base("#10141A", 0.1), "--surface": base("#171C24", 0.12), "--surface-2": base("#1B212A", 0.13), "--soft": base("#212833", 0.15), "--line": base("#283040", 0.16), "--line-2": base("#343D4D", 0.18),
+      "--primary": mix("#F3EEE4", c1, 0.12), "--primary-fg": base("#0F1319", 0.25), "--accent": acc, "--accent-ink": acc, "--accent-fg": "#1A120C",
+      "--side": base("#0C1016", 0.22), "--side-fg": "#CDD5DF", "--side-strong": "#FFFFFF", "--c1": c1,
+      "--ch-a": mix(c1, "#181D26", 0.22), "--ch-b": mix(c1, "#181D26", 0.4), "--ch-c": mix(c1, "#181D26", 0.58), "--ch-acc": acc, "--ch-acc2": mix(acc, "#181D26", 0.4), "--hero-ring": mix(acc, B, 0.6),
     });
   }
   return v;
@@ -166,9 +172,9 @@ export function useApplyTheme(mode: Mode) {
 
 // ---------- Page Personnalisation ----------
 const SUGGEST = {
-  brand: ["#203C31", "#1F2F4A", "#0F5C6E", "#4A5A2C", "#6B1E2E", "#5E1F54", "#26282B", "#2C4C7C"],
-  accent: ["#E77938", "#F06B5B", "#F2B53A", "#D9A629", "#E4572E", "#F28C28", "#3D7BF2", "#2BB39A"],
-  paper: ["#F5F5F1", "#FFFFFF", "#F6F4F0", "#F1F6F5", "#F4F2E9", "#F8F3EF", "#FBF5F7", "#F4F4F5"],
+  brand: ["#0C253F", "#203C31", "#1F2F4A", "#0F5C6E", "#4A5A2C", "#6B1E2E", "#5E1F54", "#26282B", "#2C4C7C"],
+  accent: ["#FF7A1F", "#E77938", "#F06B5B", "#F2B53A", "#D9A629", "#E4572E", "#F28C28", "#3D7BF2", "#2BB39A"],
+  paper: ["#FCF0DC", "#F5F5F1", "#FFFFFF", "#F6F4F0", "#F1F6F5", "#F4F2E9", "#F8F3EF", "#FBF5F7", "#F4F4F5"],
 };
 
 function ColorRow({ id, label, hint, value, onChange, suggestions }: { id: string; label: string; hint: string; value: string; onChange: (v: string) => void; suggestions: string[] }) {

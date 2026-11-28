@@ -2,13 +2,26 @@ import React, { useEffect, useState } from "react";
 import { X, Check, Info, TriangleAlert, ImageOff } from "lucide-react";
 import { catById, Merchant, Product, statusLabel, statusText, daysSince } from "./data";
 import { useStore } from "./store";
+import { WORDMARK } from "./brand";
 
 export const cx = (...a: any[]) => a.filter(Boolean).join(" ");
 
+/** Mot-symbole « arrivage. » vectorisé (Inter Tight Black). size = taille de police équivalente. */
+export function Wordmark({ size = 22, className, style }: { size?: number | string; className?: string; style?: React.CSSProperties }) {
+  const [, , w, h] = WORDMARK.viewBox.split(" ").map(Number);
+  const height = typeof size === "number" ? size : `calc(${size})`;
+  return (
+    <svg className={cx("wordmark", className)} viewBox={WORDMARK.viewBox} style={{ height, width: "auto", aspectRatio: `${w} / ${h}`, ...style }} role="img" aria-label="arrivage.">
+      <path d={WORDMARK.d} fill="currentColor" />
+      <circle cx={WORDMARK.dot.cx} cy={WORDMARK.dot.cy} r={WORDMARK.dot.r} className="wordmark-dot" />
+    </svg>
+  );
+}
+
 export function Logo({ size = 22, light = false }: { size?: number; light?: boolean }) {
   return (
-    <span className="logo" style={{ fontSize: size, color: light ? "var(--side-strong, #F5F5F1)" : undefined }} aria-label="arrivage.">
-      arrivage<span className="logo-dot">.</span>
+    <span className="logo" style={{ color: light ? "var(--side-strong, #FCF0DC)" : undefined }}>
+      <Wordmark size={size} />
     </span>
   );
 }
