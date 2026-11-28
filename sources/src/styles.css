@@ -35,6 +35,8 @@
 * { box-sizing: border-box; }
 html, body { background: var(--bg); color: var(--fg); }
 body { font-family: var(--f-body); font-size: 14.5px; line-height: 1.5; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+/* Appli installée (barre d état transparente) : le contenu commence sous l heure et la batterie */
+body { padding-top: env(safe-area-inset-top, 0px); }
 body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 60; background: var(--green); }
 button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; padding: 0; }
 input, select, textarea { font: inherit; color: var(--fg); }
