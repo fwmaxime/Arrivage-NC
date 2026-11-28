@@ -64,6 +64,7 @@ Ordre à respecter. Chaque script peut être relancé sans risque. **Après tout
 5. `supabase/photos.sql` : bucket de stockage « photos ».
 6. `supabase/compte.sql` : bouton « Supprimer mon compte » (fonction `delete_my_account`).
 7. `supabase/admin.sql` : suppression d’un commerce ou d’un compte par un admin.
+8. `supabase/introuvables.sql` : « Je cherche ce produit » (table `wanted`, fonction `wanted_stats`).
 
 **Pages légales** : `sources/src/legal.tsx` (mentions légales, confidentialité, conditions). Compléter l’objet `EDITOR` en haut du fichier (responsables, statut, adresse, directeur de la publication) avant de publier sur le site officiel.
 
@@ -76,3 +77,10 @@ Ordre à respecter. Chaque script peut être relancé sans risque. **Après tout
 
 Couleurs : marine `#0C253F`, crème `#FCF0DC`, orange `#FF7A1F`. Titres en Inter Tight, texte en Inter. Le logo « arrivage. » est vectorisé dans `sources/src/brand.ts` (aucune police à charger) ; les icônes et écrans de lancement de l'appli se régénèrent avec `node sources/pwa/make-icons.js`. Texte orange sur fond clair : utiliser `var(--accent-ink)` (orange foncé lisible), les boutons orange ont un texte marine. L'ancien thème vert reste disponible dans Personnalisation (« Vert d'origine »).
 
+
+## « Je cherche ce produit » (produits introuvables, 28/11/2026)
+
+- Côté client : bouton « Je cherche ce produit » quand une recherche ne donne rien, encadré « Vous ne trouvez pas… ? Signaler » sous les résultats, et section « Produits que je cherche » dans Mes alertes (marquer trouvé, retirer). Connexion obligatoire ; une alerte est créée en même temps (case cochée par défaut) pour prévenir le client dès qu'un commerce publie le produit.
+- Côté commerçant : page Pro > « Produits recherchés » (`#/pro/produits-recherches`) et encart sur le tableau de bord. Demandes regroupées par produit, jamais d'identité. Gratuit et Starter : les 3 plus demandés ; Business : liste complète, communes, dates ; Premium : en plus budgets moyens et précisions des clients. Bouton « Annoncer » = formulaire de publication prérempli.
+- Côté admin : Admin > « Produits recherchés » (par produit, ou chaque demande avec son auteur ; suppression d'une demande abusive).
+- Limites : une demande par produit et par compte, 30 par 24 h, comptées 90 jours. Le niveau de détail par forfait est fixé côté serveur dans `wanted_stats` (`supabase/introuvables.sql`) et rappelé dans `sources/src/wanted.tsx`.

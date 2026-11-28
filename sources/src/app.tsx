@@ -4,7 +4,7 @@ import { toHash, fromHash } from "./url";
 import { useBlockGate, BlockedPage } from "./blocked";
 import { HowPage } from "./how";
 import { createRoot } from "react-dom/client";
-import { Home as HomeI, Compass, BellRing, Heart, Store, Bell, User, MapPin, LayoutDashboard, Package, Plus, Target, Crown, Settings, Calculator, Users, Flag, Layers, ShieldCheck, RotateCcw, Search, X, ChevronDown, Ban, Palette, ShoppingBag, Map as MapIco, Star, FileSpreadsheet, Users as UsersIco } from "lucide-react";
+import { Home as HomeI, Compass, BellRing, Heart, Store, Bell, User, MapPin, LayoutDashboard, Package, Plus, Target, Crown, Settings, Calculator, Users, Flag, Layers, ShieldCheck, RotateCcw, Search, X, ChevronDown, Ban, Palette, ShoppingBag, Map as MapIco, Star, FileSpreadsheet, Users as UsersIco, PackageSearch } from "lucide-react";
 import { TeamPage, ActAsBanner, NoAccess, JoinTeamPage } from "./team";
 import { ImportPage } from "./import";
 import { can as roleCan, ROUTE_PERM, roleById } from "./staff";
@@ -16,6 +16,7 @@ import { Logo, Toasts, cx, IconBtn, Modal, Btn, MerchantLogo } from "./ui";
 import { Explore, ProductPage, AlertsPage, FavoritesPage, MerchantsPage, MerchantPage, ProfilePage, NotificationsPanel, LocationPicker } from "./consumer";
 import { Home, SearchBox } from "./home";
 import { DemoProvider, DemoBanner, useDemo } from "./demo";
+import { MerchantWantedPage, AdminWantedPage } from "./wanted";
 import { MerchantDashboard, PostsPage, PublishPage, DemandPage, PlansPage, ShopProfile, useMe } from "./merchant";
 import { FinanceSimulator } from "./finance-ui";
 import { AdminOverview, AdminMerchants, AdminUsers, AdminPosts, AdminCategories } from "./admin";
@@ -156,6 +157,7 @@ function MerchantShellIn({ route, go }: any) {
     { n: "publish", l: "Publier un arrivage", s: "Publier", i: Plus, cta: true },
     { n: "import", l: "Import Excel", s: "Import", i: FileSpreadsheet, lock: !plan.can.bulkImport },
     { n: "demand", l: "Demande locale", s: "Demande", i: Target, lock: !plan.can.demand },
+    { n: "wanted", l: "Produits recherchés", s: "Recherchés", i: PackageSearch },
     // Réservations supprimées le 27/11/2026 : l'entrée ne reste que pour consulter d'anciennes réservations
     ...(s.reservations.some((r) => r.merchantId === me.id) ? [{ n: "reservations", l: "Anciennes réservations", s: "Réservations", i: ShoppingBag, badge: resNew }] : []),
     { n: "reviews", l: "Avis clients", s: "Avis", i: Star },
@@ -173,6 +175,7 @@ function MerchantShellIn({ route, go }: any) {
       case "posts": return <PostsPage />;
       case "publish": return <PublishPage params={route.params} key={route.params?.id || "new"} />;
       case "demand": return <DemandPage />;
+      case "wanted": return <MerchantWantedPage me={me} />;
       case "plans": return <PlansPage />;
       case "shop": return <ShopProfile />;
       case "moderation": return <MerchantModeration />;
@@ -200,12 +203,12 @@ function MerchantShellIn({ route, go }: any) {
         <div className="side-foot"><span className={cx("plan-badge", `plan-${plan.id}`)}>{plan.name}</span><span className="micro">{me.status === "pending" ? "En attente de validation" : me.status === "suspended" ? "Suspendu" : "En ligne"}</span></div>
       </aside>
       <div className="side-main">
-        <div className="mtop show-md">{switcher}<div className="mtop-links"><button className={cx(route.name === "moderation" && "is-on")} onClick={() => go("moderation")}><ShieldCheck size={15} /> Modération{modUnread ? <span className="side-badge">{modUnread}</span> : null}</button><button className={cx(route.name === "shop" && "is-on")} onClick={() => go("shop")}><Settings size={15} /> Ma fiche</button>{(!acting || roleCan(acting.role, "publish")) && <button className={cx(route.name === "import" && "is-on")} onClick={() => go("import")}><FileSpreadsheet size={15} /> Import</button>}{(!acting || roleCan(acting.role, "billing")) && <button className={cx(route.name === "plans" && "is-on")} onClick={() => go("plans")}><Crown size={15} /> Forfaits</button>}<button className={cx(route.name === "reviews" && "is-on")} onClick={() => go("reviews")}><Star size={15} /> Avis</button>{(!acting || roleCan(acting.role, "team")) && <button className={cx(route.name === "team" && "is-on")} onClick={() => go("team")}><UsersIco size={15} /> Équipe</button>}<button className={cx(route.name === "theme" && "is-on")} onClick={() => go("theme")}><Palette size={15} /> Thème</button></div></div>
+        <div className="mtop show-md">{switcher}<div className="mtop-links"><button className={cx(route.name === "moderation" && "is-on")} onClick={() => go("moderation")}><ShieldCheck size={15} /> Modération{modUnread ? <span className="side-badge">{modUnread}</span> : null}</button><button className={cx(route.name === "wanted" && "is-on")} onClick={() => go("wanted")}><PackageSearch size={15} /> Recherchés</button><button className={cx(route.name === "shop" && "is-on")} onClick={() => go("shop")}><Settings size={15} /> Ma fiche</button>{(!acting || roleCan(acting.role, "publish")) && <button className={cx(route.name === "import" && "is-on")} onClick={() => go("import")}><FileSpreadsheet size={15} /> Import</button>}{(!acting || roleCan(acting.role, "billing")) && <button className={cx(route.name === "plans" && "is-on")} onClick={() => go("plans")}><Crown size={15} /> Forfaits</button>}<button className={cx(route.name === "reviews" && "is-on")} onClick={() => go("reviews")}><Star size={15} /> Avis</button>{(!acting || roleCan(acting.role, "team")) && <button className={cx(route.name === "team" && "is-on")} onClick={() => go("team")}><UsersIco size={15} /> Équipe</button>}<button className={cx(route.name === "theme" && "is-on")} onClick={() => go("theme")}><Palette size={15} /> Thème</button></div></div>
         {employee ? <div className="actas"><UsersIco size={16} /><span>Vous êtes connecté comme <b>{roleName(employee.role)}</b> de {me.name}. Certaines pages sont réservées au propriétaire.</span></div> : acting && <ActAsBanner member={acting} />}
         <main key={route.name + (route.params?.id || "")}>{page}</main>
       </div>
       <nav className="bottomnav show-md">
-        {items.filter((x) => x.n !== "shop" && x.n !== "moderation" && x.n !== "theme" && x.n !== "plans" && x.n !== "reviews" && x.n !== "team" && x.n !== "import").map((x) => <button key={x.n} className={cx(route.name === x.n && "is-on", x.cta && "bn-cta")} onClick={() => go(x.n, {})}><x.i size={20} /><span>{x.s}</span></button>)}
+        {items.filter((x) => x.n !== "shop" && x.n !== "moderation" && x.n !== "theme" && x.n !== "plans" && x.n !== "reviews" && x.n !== "team" && x.n !== "import" && x.n !== "wanted").map((x) => <button key={x.n} className={cx(route.name === x.n && "is-on", x.cta && "bn-cta")} onClick={() => go(x.n, {})}><x.i size={20} /><span>{x.s}</span></button>)}
       </nav>
     </div>
   );
@@ -219,6 +222,7 @@ function AdminShell({ route, go }: any) {
     { n: "overview", l: "Vue d'ensemble", i: LayoutDashboard }, { n: "finance", l: "Simulateur financier", i: Calculator },
     { n: "merchants", l: "Commerçants", i: Store, badge: s.merchants.filter((m) => m.status === "pending").length + planRequests(s.merchants).length }, { n: "users", l: "Utilisateurs", i: Users }, { n: "posts", l: "Publications", i: Package },
     { n: "categories", l: "Catégories", i: Layers }, { n: "reports", l: "Signalements", i: Flag, badge: open },
+    { n: "wanted", l: "Produits recherchés", i: PackageSearch },
     { n: "reviews", l: "Avis clients", i: Star, badge: s.reviews.filter((r) => r.status === "pending").length },
     { n: "theme", l: "Personnalisation", i: Palette },
   ];
@@ -230,6 +234,7 @@ function AdminShell({ route, go }: any) {
       case "posts": return <AdminPosts />;
       case "categories": return <AdminCategories />;
       case "reports": return <AdminReports />;
+      case "wanted": return <AdminWantedPage />;
       case "merchant": return <AdminMerchantDetail id={route.params?.id} />;
       case "reviews": return <AdminReviews />;
       case "theme": return <ThemeSettings />;
