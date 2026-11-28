@@ -72,8 +72,9 @@
 html, body { background: var(--bg); color: var(--fg); }
 body { margin: 0; }
 body { font-family: var(--f-body); font-size: 14.5px; line-height: 1.5; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
-/* Appli installée (barre d état transparente) : le contenu commence sous l heure et la batterie */
-body { padding-top: env(safe-area-inset-top, 0px); }
+/* Appli installée (barre d état transparente) : le contenu commence sous l heure et la batterie.
+   Espace en début de page plutôt que padding sur body : Safari ajoute le padding du body au décalage des éléments collants (double espace). */
+#root::before { content: ""; display: block; height: env(safe-area-inset-top, 0px); }
 body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 60; background: var(--green); }
 button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; padding: 0; }
 input, select, textarea { font: inherit; color: var(--fg); }
@@ -120,12 +121,12 @@ p { margin: 0; }
 @media (max-width: 640px) {
   .demobar-in { gap: 8px; }
   .demobar-l { flex: none; }
-  .mode-switch { flex: 1 1 auto; min-width: 0; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  .mode-switch { flex: 0 1 auto; min-width: 0; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
   .mode-switch::-webkit-scrollbar { display: none; }
   .mode-switch button { padding: 5px 12px; flex: none; }
   .mode-switch .hide-xs { display: none !important; }
   .mode-switch .show-xs { display: inline !important; }
-  .demobar-theme { flex: none; }
+  .demobar-theme { flex: none; margin-left: auto !important; }
 }
 .demobar-reset:hover { background: color-mix(in srgb, var(--green-fg) 9%, transparent); }
 
