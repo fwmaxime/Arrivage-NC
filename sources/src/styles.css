@@ -1880,3 +1880,29 @@ input[type="range"]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 4px 
 @media (max-width: 900px) { .post-actions .stock-sw { order: -1; width: 100%; } .stock-sw button { flex: 1; } }
 .asearch .sugg-row > span:not(.sg-main) { flex: 0 0 auto; }
 .todo-item { text-align: left; }
+
+/* ---------- Navigation clients 28/11 : bouton Rechercher central, page « Moi », rayons ---------- */
+.bottomnav .bn-search { color: var(--fg); font-weight: 600; }
+.bn-fab { display: flex; align-items: center; justify-content: center; width: 52px; height: 52px; margin-top: -26px; border-radius: 50%; background: var(--orange); color: var(--orange-fg); border: 4px solid var(--surface); box-shadow: 0 6px 16px color-mix(in srgb, var(--orange) 40%, transparent); }
+.bottomnav button span.bn-fab { overflow: visible; max-width: none; }
+.bottomnav .bn-search.is-on::before { display: none; }
+:root { --me-t1: #FFE1C9; --me-t2: #F8D9D9; --me-t3: #DCF2E1; --me-t4: #E6DAF3; }
+.me-page { max-width: 640px; }
+.me-page .page-title { margin-bottom: 14px; }
+.me-id { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; padding: 14px; border-radius: calc(16px * var(--rs)); background: var(--surface); border: 1px solid var(--line); color: var(--fg); }
+.me-id > div { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.me-av { width: 42px; height: 42px; flex: 0 0 42px; border-radius: 50%; background: var(--orange); color: var(--orange-fg); display: flex; align-items: center; justify-content: center; font-family: var(--f-display); font-weight: 800; font-size: 18px; }
+.me-list { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
+.me-row { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; padding: 12px; border-radius: calc(14px * var(--rs)); background: var(--surface); border: 1px solid var(--line); color: var(--fg); }
+.me-row:hover { border-color: var(--line-2); }
+.me-ico { width: 40px; height: 40px; flex: 0 0 40px; border-radius: calc(11px * var(--rs)); display: flex; align-items: center; justify-content: center; color: #0C253F; }
+.me-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.me-badge { min-width: 24px; height: 24px; padding: 0 7px; border-radius: 8px; background: var(--orange); color: var(--orange-fg); font-weight: 800; font-size: 13px; display: flex; align-items: center; justify-content: center; }
+.me-links { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; margin-top: 20px; }
+.me-links .link { display: inline-flex; align-items: center; gap: 6px; }
+.rayons { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding: 2px 0 6px; margin-top: 4px; }
+.rayons::-webkit-scrollbar { display: none; }
+.rayons .chip { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px; }
+.rayons .chip.is-on { background: var(--primary); color: var(--primary-fg); border-color: var(--primary); }
+@media (max-width: 900px) { .rayons { margin-right: calc(-1 * var(--gut-r)); padding-right: var(--gut-r); } }
+.rayons { margin: 14px 0 6px; }

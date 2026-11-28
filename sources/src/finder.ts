@@ -97,3 +97,13 @@ export function highlight(text: string, q: string): { t: string; on: boolean }[]
   chars.forEach((ch, i) => { const on = !!mark[i]; if (out.length && out[out.length - 1].on === on) out[out.length - 1].t += ch; else out.push({ t: ch, on }); });
   return out;
 }
+
+// « Vus récemment » : derniers produits consultés, gardés sur cet appareil (rien n'est envoyé au serveur)
+const VKEY = "arrivage-vus";
+export function recentViews(): string[] {
+  try { const x = JSON.parse(localStorage.getItem(VKEY) || "[]"); return Array.isArray(x) ? x.filter((v) => typeof v === "string") : []; } catch { return []; }
+}
+export function pushView(id: string) {
+  try { localStorage.setItem(VKEY, JSON.stringify([id, ...recentViews().filter((x) => x !== id)].slice(0, 12))); } catch {}
+}
+export function clearViews() { try { localStorage.removeItem(VKEY); } catch {} }

@@ -17,7 +17,7 @@ import { Explore, ProductPage, AlertsPage, FavoritesPage, MerchantsPage, Merchan
 import { Home, SearchBox } from "./home";
 import { DemoProvider, DemoBanner, useDemo } from "./demo";
 import { MerchantWantedPage, AdminWantedPage } from "./wanted";
-import { MoreSheet, AdminSearch } from "./navkit";
+import { MoreSheet, AdminSearch, MePage } from "./navkit";
 import { MerchantDashboard, PostsPage, PublishPage, DemandPage, PlansPage, ShopProfile, useMe } from "./merchant";
 import { FinanceSimulator } from "./finance-ui";
 import { AdminOverview, AdminMerchants, AdminUsers, AdminPosts, AdminCategories } from "./admin";
@@ -68,6 +68,7 @@ function ConsumerShell({ route, go }: any) {
   const [notif, setNotif] = useState(false);
   const [loc, setLoc] = useState(false);
   const [msearch, setMsearch] = useState(false);
+  useEffect(() => { setMsearch(false); setNotif(false); }, [route.name, JSON.stringify(route.params || {})]);
   const unread = s.notifications.filter((n) => !n.read).length;
   const hasRes = s.reservations.some((r) => r.buyerId === s.me?.id); // anciennes réservations seulement : on ne peut plus réserver
   const resActive = s.reservations.filter((r) => r.buyerId === s.me?.id && (r.status === "paid" || r.status === "ready")).length;
@@ -80,7 +81,8 @@ function ConsumerShell({ route, go }: any) {
       case "explore": return <Explore params={route.params} />;
       case "product": return <ProductPage params={route.params} />;
       case "alerts": return <AlertsPage params={route.params} />;
-      case "favorites": return <FavoritesPage />;
+      case "favorites": return <FavoritesPage params={route.params} />;
+      case "me": return <MePage />;
       case "merchants": return <MerchantsPage params={route.params} />;
       case "merchant": return <MerchantPage params={route.params} />;
       case "profile": return <ProfilePage />;
@@ -93,7 +95,14 @@ function ConsumerShell({ route, go }: any) {
       default: return <Home />;
     }
   })();
-  const isActive = (n: string) => route.name === n || (n === "explore" && route.name === "product") || (n === "merchants" && route.name === "merchant");
+  const isActive = (n: string) => route.name === n || (n === "explore" && route.name === "product") || (n === "merchants" && route.name === "merchant") || (n === "me" && ME_PAGES.includes(route.name));
+  // Barre du bas (téléphone, iPad en portrait) : Rechercher au centre, et « Moi » regroupe alertes, favoris et compte
+  const alertUnread = s.notifications.filter((n) => !n.read && n.kind === "alert").length;
+  const mobile = [
+    { n: "home", l: "Accueil", i: HomeI }, { n: "explore", l: "Explorer", i: Compass },
+    { n: "search", l: "Rechercher", i: Search, fab: true },
+    { n: "merchants", l: "Commerces", i: Store }, { n: "me", l: "Moi", i: User, badge: alertUnread },
+  ];
   return (
     <div className="shell-c">
       <header className="chead">
@@ -103,10 +112,9 @@ function ConsumerShell({ route, go }: any) {
           <nav className="cnav hide-md">{links.slice(1).map((x) => <button key={x.n} className={cx(isActive(x.n) && "is-on")} onClick={() => go(x.n, {})}>{x.l}</button>)}</nav>
           <div className="chead-r">
             <button className="locbtn" onClick={() => setLoc(true)}><MapPin size={15} /><span>{s.profile.commune || "Tout le territoire"}</span><ChevronDown size={14} className="hide-xs" /></button>
-            <IconBtn icon={Search} label="Rechercher" className="show-md" onClick={() => setMsearch(true)} />
             {hasRes && <div className="bell-wrap show-md"><IconBtn icon={ShoppingBag} label="Mes réservations" active={route.name === "orders"} onClick={() => go("orders")} />{resActive > 0 && <span className="badge">{resActive}</span>}</div>}
             <div className="bell-wrap"><IconBtn icon={Bell} label="Notifications" onClick={() => setNotif(true)} />{unread > 0 && <span className="badge">{unread}</span>}</div>
-            {s.me ? <IconBtn icon={User} label="Mon compte" active={route.name === "profile"} onClick={() => go("profile")} /> : <button className="btn btn-primary btn-sm chead-login" onClick={() => openAuth()}><User size={15} /><span className="hide-xs">Se connecter</span></button>}
+            {s.me ? <IconBtn icon={User} label="Mon compte" className="hide-md" active={route.name === "profile"} onClick={() => go("profile")} /> : <button className="btn btn-primary btn-sm chead-login" onClick={() => openAuth()}><User size={15} /><span className="hide-xs">Se connecter</span></button>}
           </div>
         </div>
       </header>
@@ -118,7 +126,9 @@ function ConsumerShell({ route, go }: any) {
         <p className="muted small">Prix et disponibilités sont déclarés par les commerçants. Contact : <a href="mailto:contact@arrivagenc.com">contact@arrivagenc.com</a></p>
       </footer>
       <nav className="bottomnav show-md">
-        {links.filter((x: any) => !x.desk).map((x) => <button key={x.n} className={cx(isActive(x.n) && "is-on")} onClick={() => go(x.n, {})}><x.i size={20} strokeWidth={isActive(x.n) ? 2.3 : 1.8} /><span>{x.l}</span></button>)}
+        {mobile.map((x: any) => x.fab
+          ? <button key={x.n} className={cx("bn-search", msearch && "is-on")} onClick={() => setMsearch(true)} aria-label="Rechercher"><span className="bn-fab"><x.i size={24} strokeWidth={2.4} /></span><span>{x.l}</span></button>
+          : <button key={x.n} className={cx(isActive(x.n) && "is-on")} onClick={() => go(x.n, {})}><span className="bn-ico"><x.i size={20} strokeWidth={isActive(x.n) ? 2.3 : 1.8} />{x.badge ? <span className="badge">{x.badge}</span> : null}</span><span>{x.l}</span></button>)}
       </nav>
       <InstallBanner />
       <NotificationsPanel open={notif} onClose={() => setNotif(false)} />
@@ -220,6 +230,7 @@ function MerchantShellIn({ route, go }: any) {
 }
 
 // Barre du bas sur mobile : 4 pages principales + « Plus » qui ouvre toutes les autres, rangées par thème
+const ME_PAGES = ["me", "alerts", "favorites", "profile", "orders"];
 const BN_MAIN = ["dashboard", "posts", "publish", "demand"];
 const ADMIN_MAIN = ["overview", "merchants", "reports", "reviews"];
 const MERCHANT_GROUPS: [string, string[]][] = [["Ma boutique", ["shop", "reviews", "theme"]], ["Clients", ["wanted", "moderation", "reservations", "import"]], ["Compte", ["plans", "team"]]];
